@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
 import 'package:mintpdf/features/home/domain/feature_model.dart';
 import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
+import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -149,6 +150,12 @@ class _FeatureCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ImageToPdfScreen()),
+            );
+          } else if (item.type == FeatureType.compressPdf) {
+            // ADD THIS
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CompressPdfScreen()),
             );
           } else {
             // Placeholder for other features
