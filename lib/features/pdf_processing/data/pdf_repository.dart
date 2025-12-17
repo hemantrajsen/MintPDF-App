@@ -5,7 +5,7 @@ import 'package:mintpdf/core/utils/file_helper.dart';
 
 // Defines the contract for our PDF operations
 abstract class IPdfRepository {
-  Future<File> createPdfFromImages(List<File> images);
+  Future<File> createPdfFromImages(List<File> images, {PdfCompressionLevel quality = PdfCompressionLevel.normal});
   Future<File> compressPdf(File pdfFile, {int quality = 50});
   Future<File> mergePdfs(List<File> pdfFiles);
 }
@@ -16,11 +16,14 @@ class PdfRepository implements IPdfRepository {
   PdfRepository(this._fileHelper);
 
   @override
-  Future<File> createPdfFromImages(List<File> images) async {
+  Future<File> createPdfFromImages(List<File> images, {PdfCompressionLevel quality = PdfCompressionLevel.normal}) async {
     // 1. Create a new PDF document
     final PdfDocument document = PdfDocument();
 
-    // 2. Loop through every image
+    // 2. APPLY SETTING: Set the compression level
+    document.compressionLevel = quality;
+
+    // 3. Loop through every image
     for (final imageFile in images) {
       // Add a page to the document
       final PdfPage page = document.pages.add();
@@ -40,13 +43,13 @@ class PdfRepository implements IPdfRepository {
       );
     }
 
-    // 3. Save the document to bytes
+    // 4. Save the document to bytes
     final List<int> bytes = await document.save();
     
-    // 4. Dispose to free memory
+    // 5. Dispose to free memory
     document.dispose();
 
-    // 5. Save to a temporary file using our Helper
+    // 6. Save to a temporary file using our Helper
     // We name it "output.pdf" temporarily
     final tempDir = await _fileHelper.getTempDir(); // We need to expose this in FileHelper
     final outputFile = File('${tempDir.path}/generated_${DateTime.now().millisecondsSinceEpoch}.pdf');

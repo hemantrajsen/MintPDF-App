@@ -43,11 +43,13 @@ dependencies:
   image_picker: ^1.1.0
   path_provider: ^2.1.2
   open_file: ^3.3.2
+  image: ^4.1.7
   
   # Utilities
   dartz: ^0.10.1
   equatable: ^2.0.5
   uuid: ^4.3.3  
+  share_plus: ^12.0.1
 
 
 dev_dependencies:

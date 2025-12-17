@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_file/open_file.dart'; // For opening the result
 import 'package:mintpdf/core/theme/app_colors.dart';
 import 'image_to_pdf_controller.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class ImageToPdfScreen extends ConsumerWidget {
   const ImageToPdfScreen({super.key});
@@ -48,17 +49,113 @@ class ImageToPdfScreen extends ConsumerWidget {
       // Floating Action Button (The "Convert" Trigger)
       floatingActionButton: state.selectedImages.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: state.isLoading ? null : () => controller.convert(),
+              onPressed: state.isLoading 
+              ? null
+              : () => _showSaveDialog(context, controller),
               label: Text(state.isLoading ? "Converting..." : "Create PDF"),
               icon: state.isLoading 
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                  : const Icon(Icons.check),
+                  : const Icon(Icons.save_as), //changed icon to represent saving
             )
           : null,
           
       body: state.selectedImages.isEmpty 
           ? _buildEmptyState(context, controller) 
           : _buildImageGrid(context, state, controller),
+    );
+  }
+
+  // 2. ADD: The "Save Options" Dialog
+  void _showSaveDialog(BuildContext context, ImageToPdfNotifier controller) {
+    final textController = TextEditingController(text: "Scan_${DateTime.now().hour}_${DateTime.now().minute}");
+    
+    // Default quality
+    PdfCompressionLevel selectedQuality = PdfCompressionLevel.normal;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        // StatefulBuilder allows the Dialog to update itself (for the Dropdown)
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Save PDF"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Filename", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: textController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: "Enter file name",
+                      suffixText: ".pdf",
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text("Quality / Size", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 8),
+                  
+                  // The Quality Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<PdfCompressionLevel>(
+                        value: selectedQuality,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                            value: PdfCompressionLevel.none,
+                            child: Text("High Quality (Large File)"),
+                          ),
+                          DropdownMenuItem(
+                            value: PdfCompressionLevel.normal,
+                            child: Text("Medium (Recommended)"),
+                          ),
+                          DropdownMenuItem(
+                            value: PdfCompressionLevel.best,
+                            child: Text("Low Quality (Smallest Size)"),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            // This 'setState' only rebuilds the Dialog, not the whole screen
+                            setState(() {
+                              selectedQuality = value;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    // Pass BOTH name and quality to the controller
+                    controller.convert(textController.text, selectedQuality);
+                  },
+                  child: const Text("Save"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
