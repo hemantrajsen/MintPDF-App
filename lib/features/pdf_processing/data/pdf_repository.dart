@@ -1,5 +1,8 @@
 import 'dart:io';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:mintpdf/core/utils/file_helper.dart';
 
@@ -10,48 +13,106 @@ abstract class IPdfRepository {
   Future<File> mergePdfs(List<File> pdfFiles);
 }
 
+// TOP-LEVEL FUNCTION (required for compute/isolate - must be outside class)
+Uint8List _processImage(Map<String, dynamic> params) {
+  final Uint8List bytes = params['bytes'];
+  final int jpegQuality = params['jpegQuality'];
+  final int maxDimension = params['maxDimension'];
+
+  // Decode the image
+  img.Image? image = img.decodeImage(bytes);
+  if (image == null) return bytes; // Return original if decode fails
+
+  // Resize if too large
+  if (image.width > maxDimension || image.height > maxDimension) {
+    if (image.width > image.height) {
+      image = img.copyResize(image, width: maxDimension);
+    } else {
+      image = img.copyResize(image, height: maxDimension);
+    }
+  }
+
+  // Encode as JPEG with specified quality
+  return Uint8List.fromList(img.encodeJpg(image, quality: jpegQuality));
+}
+
 class PdfRepository implements IPdfRepository {
   final FileHelper _fileHelper;
 
   PdfRepository(this._fileHelper);
 
+  // Helper: Get JPEG quality based on compression level
+  int _getJpegQuality(PdfCompressionLevel level) {
+    switch (level) {
+      case PdfCompressionLevel.none:
+        return 95; // High quality, large file
+      case PdfCompressionLevel.normal:
+        return 75; // Balanced
+      case PdfCompressionLevel.best:
+        return 50; // Low quality, small file
+      default:
+        return 75;
+    }
+  }
+
+  // Helper: Get max dimension based on compression level
+  int _getMaxDimension(PdfCompressionLevel level) {
+    switch (level) {
+      case PdfCompressionLevel.none:
+        return 3000; // Full resolution
+      case PdfCompressionLevel.normal:
+        return 2000; // Medium
+      case PdfCompressionLevel.best:
+        return 1200; // Smaller
+      default:
+        return 2000;
+    }
+  }
+
+  // Compress image in an isolate (background thread)
+  Future<Uint8List> _compressImage(File imageFile, PdfCompressionLevel level) async {
+    final bytes = await imageFile.readAsBytes();
+    
+    // Use compute() to run in background isolate (prevents UI freeze)
+    return await compute(_processImage, {
+      'bytes': Uint8List.fromList(bytes),
+      'jpegQuality': _getJpegQuality(level),
+      'maxDimension': _getMaxDimension(level),
+    });
+  }
+
   @override
   Future<File> createPdfFromImages(List<File> images, {PdfCompressionLevel quality = PdfCompressionLevel.normal}) async {
     // 1. Create a new PDF document
     final PdfDocument document = PdfDocument();
-
-    // 2. APPLY SETTING: Set the compression level
     document.compressionLevel = quality;
 
-    // 3. Loop through every image
+    // 2. Loop through every image
     for (final imageFile in images) {
       // Add a page to the document
       final PdfPage page = document.pages.add();
       
-      // Read image bytes
-      final List<int> imageBytes = await imageFile.readAsBytes();
+      // COMPRESS the image based on quality setting
+      final Uint8List compressedBytes = await _compressImage(imageFile, quality);
       
-      // Create a PDF Bitmap
-      // Note: Syncfusion handles JPEG/PNG automatically.
-      // If we have HEIC, we rely on our generic Transcoder (future step).
-      PdfBitmap bitmap = PdfBitmap(imageBytes);
+      // Create a PDF Bitmap from compressed bytes
+      PdfBitmap bitmap = PdfBitmap(compressedBytes);
 
       // Draw the image on the page to fill it
       page.graphics.drawImage(
         bitmap,
-        Rect.fromLTWH(0, 0, page.getClientSize().width, page.getClientSize().height),
+        ui.Rect.fromLTWH(0, 0, page.getClientSize().width, page.getClientSize().height),
       );
     }
 
-    // 4. Save the document to bytes
+    // 3. Save the document to bytes
     final List<int> bytes = await document.save();
     
-    // 5. Dispose to free memory
+    // 4. Dispose to free memory
     document.dispose();
 
-    // 6. Save to a temporary file using our Helper
-    // We name it "output.pdf" temporarily
-    final tempDir = await _fileHelper.getTempDir(); // We need to expose this in FileHelper
+    // 5. Save to a temporary file
+    final tempDir = await _fileHelper.getTempDir();
     final outputFile = File('${tempDir.path}/generated_${DateTime.now().millisecondsSinceEpoch}.pdf');
     
     return await outputFile.writeAsBytes(bytes);
@@ -65,9 +126,6 @@ class PdfRepository implements IPdfRepository {
 
     // Set Compression Options
     document.compressionLevel = PdfCompressionLevel.best;
-    
-    // In a real app, we would optimize images inside the PDF here.
-    // Syncfusion's basic compression is metadata-based.
     
     final List<int> compressedBytes = await document.save();
     document.dispose();
@@ -88,27 +146,17 @@ class PdfRepository implements IPdfRepository {
       final List<int> bytes = await file.readAsBytes();
       final PdfDocument inputDoc = PdfDocument(inputBytes: bytes);
       
-      // 3. THE FIX: The "Template Method"
-      // Syncfusion Flutter doesn't have 'importPage'.
-      // We must create a 'template' (copy) of each page and draw it.
+      // 3. Create a 'template' (copy) of each page and draw it
       for (int i = 0; i < inputDoc.pages.count; i++) {
-        // a. Get the source page
         final PdfPage sourcePage = inputDoc.pages[i];
-        
-        // b. Create a new page in our master doc with the SAME size
         final PdfPage newPage = document.pages.add();
-        
-        // c. Create a template from the source and draw it
-        // This preserves the look, though some interactive elements might be flattened.
         final PdfTemplate template = sourcePage.createTemplate();
-        newPage.graphics.drawPdfTemplate(template, const Offset(0, 0));
+        newPage.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
       }
       
-      // 4. Dispose the input to free memory
       inputDoc.dispose();
     }
 
-    // 5. Save and return
     final List<int> mergedBytes = await document.save();
     document.dispose();
 
