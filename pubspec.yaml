@@ -51,6 +51,7 @@ dependencies:
   equatable: ^2.0.5
   uuid: ^4.3.3  
   share_plus: ^12.0.1
+  reorderable_grid_view: ^2.2.8
 
 
 dev_dependencies:

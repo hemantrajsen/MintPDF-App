@@ -4,6 +4,7 @@ import 'package:open_file/open_file.dart'; // For opening the result
 import 'package:mintpdf/core/theme/app_colors.dart';
 import 'image_to_pdf_controller.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class ImageToPdfScreen extends ConsumerWidget {
   const ImageToPdfScreen({super.key});
@@ -168,6 +169,7 @@ class ImageToPdfScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
+              // ignore: deprecated_member_use
               color: Theme.of(context).primaryColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
@@ -200,64 +202,95 @@ class ImageToPdfScreen extends ConsumerWidget {
 
   // --- Sub-Widget: Image Grid ---
   Widget _buildImageGrid(BuildContext context, ImageToPdfState state, ImageToPdfNotifier controller) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, // 3 Images per row
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: state.selectedImages.length,
-      itemBuilder: (context, index) {
-        final file = state.selectedImages[index];
-        return Stack(
-          children: [
-            // The Image Thumbnail
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  file,
-                  fit: BoxFit.cover,
+    return Column(
+      children: [
+         // SUBTLE HINT
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                "Long press and drag to reorder pages",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
                 ),
               ),
-            ),
-            // The Delete Button (Top Right)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: GestureDetector(
-                onTap: () => controller.removeImage(index),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: ReorderableGridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3, // 3 Images per row
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 0.8,
+          ),
+          itemCount: state.selectedImages.length,
+          onReorder: (oldIndex, newIndex) {
+            controller.reorderImages(oldIndex, newIndex);
+          },
+          itemBuilder: (context, index) {
+            final file = state.selectedImages[index];
+            return Container(
+              key: ValueKey(file.path),
+              child: Stack(
+                children: [
+                  // The Image Thumbnail
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                  child: const Icon(Icons.close, size: 16, color: Colors.white),
-                ),
+                  // The Delete Button (Top Right)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => controller.removeImage(index),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  // Number Badge (Bottom Left)
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        "${index + 1}",
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            // Number Badge (Bottom Left)
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  "${index + 1}",
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+            );
+          },
+        ),
+      ),
+     ],
     );
   }
 }

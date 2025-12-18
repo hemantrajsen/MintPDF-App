@@ -4,6 +4,7 @@ import 'package:mintpdf/core/theme/app_colors.dart';
 import 'package:mintpdf/features/home/domain/feature_model.dart';
 import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
+import '../../pdf_processing/presentation/merge_pdf_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -93,9 +94,11 @@ class HomeScreen extends ConsumerWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
+                    // ignore: deprecated_member_use
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
+                      // ignore: deprecated_member_use
                       color: AppColors.primary.withOpacity(0.2),
                     ),
                   ),
@@ -139,7 +142,7 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 0,
+      elevation: 1,
       clipBehavior: Clip.antiAlias,
       // Use the theme's card color, but slightly elevated visually
       color: Theme.of(context).cardTheme.color,
@@ -156,6 +159,10 @@ class _FeatureCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CompressPdfScreen()),
+            );
+          } else if (item.type == FeatureType.mergePdf) {
+            Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const MergePdfScreen()),
             );
           } else {
             // Placeholder for other features
@@ -174,6 +181,7 @@ class _FeatureCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: item.color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),

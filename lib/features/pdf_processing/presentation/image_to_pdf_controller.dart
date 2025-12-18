@@ -68,6 +68,13 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
     updatedList.removeAt(index);
     state = state.copyWith(selectedImages: updatedList);
   }
+  // NEW: Action: User reorders images
+  void reorderImages(int oldIndex, int newIndex) {
+    final updatedList = List<File>.from(state.selectedImages);
+    final File item = updatedList.removeAt(oldIndex);
+    updatedList.insert(newIndex, item);
+    state = state.copyWith(selectedImages: updatedList);
+  }
 
   // Action: User clicks "Convert to PDF"
   Future<void> convert(String fileName, PdfCompressionLevel quality) async {
