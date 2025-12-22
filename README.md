@@ -29,7 +29,7 @@ MintPDF is built with the latest Flutter technologies to ensure performance and 
 
 ---
 
-## &copy MintPDF 2025 All Rights are Reserved
+## &copy; MintPDF 2025 All Rights are Reserved
 
 <p align="center"> Built with 💙 using Flutter </p>
 <p align="center"> By: Hemant Raj Sen</p>
