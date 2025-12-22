@@ -6,6 +6,7 @@ import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 import '../../pdf_processing/presentation/merge_pdf_screen.dart';
 import '../../pdf_processing/presentation/split_pdf_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -59,7 +60,10 @@ class HomeScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () {
-                  // TODO: Navigate to settings
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
                 },
               ),
               const SizedBox(width: 8),

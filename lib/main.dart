@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/home/presentation/home_screen.dart';
 
 void main() {
@@ -12,17 +13,17 @@ class MintPDFApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       home: const HomeScreen(),
       title: 'MintPDF',
       debugShowCheckedModeBanner: false,
-      
+
       // Theme Configuration
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Auto-detect system preference
-      
-      
+      themeMode: themeMode,
     );
   }
 }

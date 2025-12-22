@@ -52,6 +52,7 @@ dependencies:
   uuid: ^4.3.3  
   share_plus: ^12.0.1
   reorderable_grid_view: ^2.2.8
+  package_info_plus: ^9.0.0
 
 
 dev_dependencies:
@@ -64,6 +65,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
