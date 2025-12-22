@@ -45,29 +45,120 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           // 1. The Modern App Bar
           SliverAppBar.large(
-            title: const Text(
-              "MintPDF",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            centerTitle: false,
+            expandedHeight: 180.0,
+            pinned: true,
+            stretch: true,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+
+            // Custom Settings Button
             actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
+                  color: Theme.of(context).cardColor.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white10
+                        // ignore: deprecated_member_use
+                        : Colors.black.withOpacity(0.05),
+                  ),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                ),
               ),
-              const SizedBox(width: 8),
             ],
+
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              centerTitle: false,
+              title: Text(
+                "MintPDF",
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  fontSize: 28,
+                ),
+              ),
+              background: Stack(
+                children: [
+                  // Decorative Gradient Blob (Top Right)
+                  Positioned(
+                    top: -60,
+                    right: -60,
+                    child: Container(
+                      width: 250,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            // ignore: deprecated_member_use
+                            AppColors.primary.withOpacity(0.12),
+                            // ignore: deprecated_member_use
+                            AppColors.primary.withOpacity(0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Decorative Accent Blob (Mid Left)
+                  Positioned(
+                    top: 40,
+                    left: -40,
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        // ignore: deprecated_member_use
+                        color: AppColors.accent.withOpacity(0.04),
+                      ),
+                    ),
+                  ),
+
+                  // Optional: A very subtle icon in the background
+                  Positioned(
+                    bottom: 20,
+                    right: 20,
+                    child: Transform.rotate(
+                      angle: -0.2,
+                      child: Icon(
+                        Icons.description_outlined,
+                        size: 120,
+                        color: isDark
+                            // ignore: deprecated_member_use
+                            ? Colors.white.withOpacity(0.02)
+                            // ignore: deprecated_member_use
+                            : Colors.black.withOpacity(0.02),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
 
           // 2. The Feature Grid
