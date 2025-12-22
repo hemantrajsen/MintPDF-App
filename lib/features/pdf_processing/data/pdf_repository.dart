@@ -52,6 +52,7 @@ abstract class IPdfRepository {
     CompressionLevel level = CompressionLevel.medium,
   });
   Future<File> mergePdfs(List<File> pdfFiles);
+  Future<File> splitPdf(File pdfFile, String pageRange);
   int estimateCompressedSize(int originalSize, CompressionLevel level);
 }
 
@@ -311,5 +312,80 @@ class PdfRepository implements IPdfRepository {
     );
 
     return await outputFile.writeAsBytes(mergedBytes);
+  }
+
+  @override
+  Future<File> splitPdf(File pdfFile, String pageRange) async {
+    final PdfDocument document = PdfDocument();
+    final List<int> bytes = await pdfFile.readAsBytes();
+    final PdfDocument inputDoc = PdfDocument(inputBytes: bytes);
+    final int pageCount = inputDoc.pages.count;
+
+    // Parse range
+    final List<int> pagesToExtract = _parsePageRange(pageRange, pageCount);
+
+    if (pagesToExtract.isEmpty) {
+      inputDoc.dispose();
+      throw Exception("No valid pages selected");
+    }
+
+    for (final index in pagesToExtract) {
+      final PdfPage sourcePage = inputDoc.pages[index];
+      final PdfPage newPage = document.pages.add();
+      final PdfTemplate template = sourcePage.createTemplate();
+      newPage.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
+    }
+
+    inputDoc.dispose();
+
+    final List<int> newBytes = await document.save();
+    document.dispose();
+
+    final tempDir = await _fileHelper.getTempDir();
+    final outputFile = File(
+      '${tempDir.path}/split_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    return await outputFile.writeAsBytes(newBytes);
+  }
+
+  List<int> _parsePageRange(String range, int maxPages) {
+    final Set<int> pages = {};
+    final parts = range.split(',');
+
+    for (var part in parts) {
+      part = part.trim();
+      if (part.isEmpty) continue;
+
+      if (part.contains('-')) {
+        final rangeParts = part.split('-');
+        if (rangeParts.length == 2) {
+          final start = int.tryParse(rangeParts[0]);
+          final end = int.tryParse(rangeParts[1]);
+
+          if (start != null && end != null) {
+            // Adjust for 1-based input to 0-based index
+            final s = start - 1;
+            final e = end - 1;
+
+            if (s >= 0 && e < maxPages && s <= e) {
+              for (int i = s; i <= e; i++) {
+                pages.add(i);
+              }
+            }
+          }
+        }
+      } else {
+        final page = int.tryParse(part);
+        if (page != null) {
+          final p = page - 1;
+          if (p >= 0 && p < maxPages) {
+            pages.add(p);
+          }
+        }
+      }
+    }
+    final sortedList = pages.toList()..sort();
+    return sortedList;
   }
 }

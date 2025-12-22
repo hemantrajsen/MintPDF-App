@@ -5,6 +5,7 @@ import 'package:mintpdf/features/home/domain/feature_model.dart';
 import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 import '../../pdf_processing/presentation/merge_pdf_screen.dart';
+import '../../pdf_processing/presentation/split_pdf_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -161,8 +162,14 @@ class _FeatureCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const CompressPdfScreen()),
             );
           } else if (item.type == FeatureType.mergePdf) {
-            Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const MergePdfScreen()),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MergePdfScreen()),
+            );
+          } else if (item.type == FeatureType.splitPdf) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SplitPdfScreen()),
             );
           } else {
             // Placeholder for other features
