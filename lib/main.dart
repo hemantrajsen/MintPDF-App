@@ -4,7 +4,20 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/home/presentation/home_screen.dart';
 
-void main() {
+// [CHANGE 1] Add these two imports
+import 'package:pdfrx/pdfrx.dart';
+import 'package:path_provider/path_provider.dart';
+
+// [CHANGE 2] Make main() async so we can wait for the directory
+void main() async {
+  // [CHANGE 3] Add this block to initialize the cache
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  Pdfrx.getCacheDirectory = () async {
+    final dir = await getTemporaryDirectory();
+    return dir.path;
+  };
+
   runApp(const ProviderScope(child: MintPDFApp()));
 }
 

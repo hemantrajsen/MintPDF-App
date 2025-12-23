@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:mintpdf/core/utils/file_helper.dart';
-import 'package:pdf_render/pdf_render.dart' as render;
+import 'package:pdfrx/pdfrx.dart' as pdfrx;
 
 /// Compression level for PDF compression feature
 enum CompressionLevel {
@@ -191,9 +190,9 @@ class PdfRepository implements IPdfRepository {
   }) async {
     final int originalSize = await pdfFile.length();
 
-    // 1. Open the PDF using pdf_render
-    final document = await render.PdfDocument.openFile(pdfFile.path);
-    final int pageCount = document.pageCount;
+    // 1. Open the PDF using pdfrx
+    final document = await pdfrx.PdfDocument.openFile(pdfFile.path);
+    final int pageCount = document.pages.length;
 
     // 2. Create NEW PDF using Syncfusion
     final syncfusionPdf = PdfDocument();
@@ -223,8 +222,8 @@ class PdfRepository implements IPdfRepository {
     }
 
     // 4. Process Pages
-    for (int i = 1; i <= pageCount; i++) {
-      final page = await document.getPage(i);
+    for (int i = 0; i < pageCount; i++) {
+      final page = document.pages[i];
 
       // Render to image
       final pageImage = await page.render(
@@ -232,11 +231,11 @@ class PdfRepository implements IPdfRepository {
         height: (page.height * scale).toInt(),
       );
 
+      if (pageImage == null) continue;
+
       // Get bytes
-      final imageBytes = await pageImage.createImageDetached();
-      final byteData = await imageBytes.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
+      final ui.Image image = await pageImage.createImage();
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData != null) {
         final Uint8List pngBytes = byteData.buffer.asUint8List();
@@ -263,7 +262,7 @@ class PdfRepository implements IPdfRepository {
       }
 
       // Dispose image to free memory
-      imageBytes.dispose();
+      image.dispose();
     }
 
     // 5. Save

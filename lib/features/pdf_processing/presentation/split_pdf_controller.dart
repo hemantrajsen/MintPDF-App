@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
-import 'package:pdf_render/pdf_render.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 class SplitPdfState {
   final bool isLoading;
@@ -58,9 +58,9 @@ class SplitPdfNotifier extends StateNotifier<SplitPdfState> {
       if (result != null && result.files.single.path != null) {
         final file = File(result.files.single.path!);
 
-        // Get page count using pdf_render
+        // Get page count using pdfrx
         final doc = await PdfDocument.openFile(file.path);
-        final count = doc.pageCount;
+        final count = doc.pages.length;
         doc.dispose();
 
         state = state.copyWith(
