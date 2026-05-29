@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
+import 'package:mintpdf/core/utils/file_helper.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
 import 'package:mintpdf/features/pdf_processing/data/pdf_repository.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as p;
 import 'compress_pdf_controller.dart';
 
 class CompressPdfScreen extends ConsumerWidget {
@@ -14,7 +19,6 @@ class CompressPdfScreen extends ConsumerWidget {
     final controller = ref.read(compressPdfProvider.notifier);
     final repository = ref.read(pdfRepositoryProvider);
 
-    // Listen for errors
     ref.listen(compressPdfProvider, (previous, next) {
       if (next.error != null && previous?.error != next.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -25,9 +29,10 @@ class CompressPdfScreen extends ConsumerWidget {
         );
       }
 
-      // Show success when compression completes
+      // Show our universal success dialog when compression completes
       if (next.result != null && previous?.result != next.result) {
-        _showResultDialog(context, next.result!, controller);
+        final originalName = next.selectedPdfName ?? 'document.pdf';
+        _showSuccessDialog(context, next.result!, originalName, controller);
       }
     });
 
@@ -49,7 +54,138 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Empty State - No PDF selected
+  // NEW: The Unified Action Choice Dialog (Stats + Save / Share / Open)
+  void _showSuccessDialog(
+    BuildContext context, 
+    CompressionResult result, 
+    String originalName,
+    CompressPdfNotifier controller
+  ) {
+    // Generate a default save name based on the original file
+    final String baseName = p.basenameWithoutExtension(originalName);
+    final String defaultSaveName = '${baseName}_compressed.pdf';
+    final File generatedFile = result.compressedFile;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle, color: AppColors.success, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Compression Complete!',
+                style: TextStyle(fontSize: 18),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // The Stats Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildStatRow('Original Size', result.originalSizeFormatted),
+                    const Divider(height: 16),
+                    _buildStatRow('Compressed Size', result.compressedSizeFormatted, valueColor: Colors.green),
+                    const Divider(height: 16),
+                    _buildStatRow('Space Saved', result.savedSizeFormatted, valueColor: Colors.green),
+                    const Divider(height: 16),
+                    _buildStatRow('Reduction', '${result.reductionPercentage.toStringAsFixed(1)}%', valueColor: Colors.green),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text("Next steps:", style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 8),
+
+              // Option 1: Save to local device
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.download_rounded, color: Colors.blue),
+                title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
+                onTap: () async {
+                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, defaultSaveName);
+                  if (savedPath != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 2: Share File 
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.share_rounded, color: Colors.purple),
+                title: const Text("Share File", style: TextStyle(fontWeight: FontWeight.w500)),
+                onTap: () {
+                  Share.shareXFiles([XFile(generatedFile.path)], text: 'Compressed with MintPDF');
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 3: Quick Open View
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text("Open PDF", style: TextStyle(fontWeight: FontWeight.w500)),
+                onTap: () {
+                  OpenFile.open(generatedFile.path);
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              controller.clearSelection(); // Reset UI for next file
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value, {Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.bold, color: valueColor, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context, CompressPdfNotifier controller, CompressPdfState state) {
     return Center(
       child: Padding(
@@ -63,18 +199,12 @@ class CompressPdfScreen extends ConsumerWidget {
                 color: AppColors.accent.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.compress,
-                size: 64,
-                color: AppColors.accent,
-              ),
+              child: Icon(Icons.compress, size: 64, color: AppColors.accent),
             ),
             const SizedBox(height: 24),
             Text(
               'Compress PDF',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -100,7 +230,6 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Main compression view - PDF selected
   Widget _buildCompressionView(
     BuildContext context,
     CompressPdfState state,
@@ -112,33 +241,23 @@ class CompressPdfScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Selected File Card
           _buildFileCard(context, state),
           const SizedBox(height: 24),
-
-          // Compression Level Section
           Text(
             'Compression Level',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           _buildCompressionOptions(context, state, controller, repository),
           const SizedBox(height: 24),
-
-          // Size Preview
           _buildSizePreview(context, state, repository),
           const SizedBox(height: 32),
-
-          // Compress Button
           _buildCompressButton(context, state, controller),
         ],
       ),
     );
   }
 
-  // File info card
   Widget _buildFileCard(BuildContext context, CompressPdfState state) {
     return Card(
       elevation: 0,
@@ -180,7 +299,6 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Compression level options
   Widget _buildCompressionOptions(
     BuildContext context,
     CompressPdfState state,
@@ -254,7 +372,6 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Size preview card
   Widget _buildSizePreview(BuildContext context, CompressPdfState state, IPdfRepository repository) {
     return Card(
       elevation: 0,
@@ -273,10 +390,7 @@ class CompressPdfScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Estimated Result',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700]),
                 ),
               ],
             ),
@@ -295,10 +409,7 @@ class CompressPdfScreen extends ConsumerWidget {
                   ),
                   child: Text(
                     state.getEstimatedReduction(repository),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -322,7 +433,6 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Compress button with progress
   Widget _buildCompressButton(BuildContext context, CompressPdfState state, CompressPdfNotifier controller) {
     if (state.isCompressing) {
       return Column(
@@ -352,167 +462,39 @@ class CompressPdfScreen extends ConsumerWidget {
     );
   }
 
-  // Result dialog - FIXED overflow issue
-  void _showResultDialog(BuildContext context, CompressionResult result, CompressPdfNotifier controller) {
-    final textController = TextEditingController(
-      text: 'compressed_${DateTime.now().millisecondsSinceEpoch}',
-    );
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_circle, color: Colors.green, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(  // ADD Expanded to prevent overflow
-              child: Text(
-                'Compression Complete!',
-                style: TextStyle(fontSize: 18),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(  // ADD ScrollView for safety
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Stats Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _buildStatRow('Original Size', result.originalSizeFormatted),
-                    const Divider(),
-                    _buildStatRow('Compressed Size', result.compressedSizeFormatted),
-                    const Divider(),
-                    _buildStatRow('Space Saved', result.savedSizeFormatted, 
-                        valueColor: Colors.green),
-                    const Divider(),
-                    _buildStatRow('Reduction', '${result.reductionPercentage.toStringAsFixed(1)}%',
-                        valueColor: Colors.green),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Filename input
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Save as', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: textController,
-                decoration: const InputDecoration(
-                  suffixText: '.pdf',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              controller.clearSelection();
-            },
-            child: const Text('Done'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.pop(ctx);
-              controller.shareResult(textController.text);
-            },
-            icon: const Icon(Icons.share, size: 18),
-            label: const Text('Share'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(
-            value,
-            style: TextStyle(fontWeight: FontWeight.bold, color: valueColor),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper methods
   String _getLevelTitle(CompressionLevel level) {
     switch (level) {
-      case CompressionLevel.low:
-        return 'Low Compression';
-      case CompressionLevel.medium:
-        return 'Medium Compression';
-      case CompressionLevel.high:
-        return 'High Compression';
-      case CompressionLevel.extreme:
-        return 'Extreme Compression';
+      case CompressionLevel.low: return 'Low Compression';
+      case CompressionLevel.medium: return 'Medium Compression';
+      case CompressionLevel.high: return 'High Compression';
+      case CompressionLevel.extreme: return 'Extreme Compression';
     }
   }
 
   String _getLevelDescription(CompressionLevel level) {
     switch (level) {
-      case CompressionLevel.low:
-        return 'Best quality, minimal size reduction';
-      case CompressionLevel.medium:
-        return 'Good balance of quality and size';
-      case CompressionLevel.high:
-        return 'Smaller file, acceptable quality';
-      case CompressionLevel.extreme:
-        return 'Smallest file, reduced quality';
+      case CompressionLevel.low: return 'Best quality, minimal size reduction';
+      case CompressionLevel.medium: return 'Good balance of quality and size';
+      case CompressionLevel.high: return 'Smaller file, acceptable quality';
+      case CompressionLevel.extreme: return 'Smallest file, reduced quality';
     }
   }
 
   String _getLevelReduction(CompressionLevel level) {
     switch (level) {
-      case CompressionLevel.low:
-        return '~15%';
-      case CompressionLevel.medium:
-        return '~40%';
-      case CompressionLevel.high:
-        return '~60%';
-      case CompressionLevel.extreme:
-        return '~75%';
+      case CompressionLevel.low: return '~15%';
+      case CompressionLevel.medium: return '~40%';
+      case CompressionLevel.high: return '~60%';
+      case CompressionLevel.extreme: return '~75%';
     }
   }
 
   Color _getLevelColor(CompressionLevel level) {
     switch (level) {
-      case CompressionLevel.low:
-        return Colors.blue;
-      case CompressionLevel.medium:
-        return Colors.green;
-      case CompressionLevel.high:
-        return Colors.orange;
-      case CompressionLevel.extreme:
-        return Colors.red;
+      case CompressionLevel.low: return Colors.blue;
+      case CompressionLevel.medium: return Colors.green;
+      case CompressionLevel.high: return Colors.orange;
+      case CompressionLevel.extreme: return Colors.red;
     }
   }
 }

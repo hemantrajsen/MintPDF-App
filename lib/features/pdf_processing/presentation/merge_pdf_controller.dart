@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
-import 'package:share_plus/share_plus.dart';
 
 class MergePdfState {
   final bool isLoading;
@@ -109,13 +108,8 @@ class MergePdfNotifier extends StateNotifier<MergePdfState> {
       final String newPath = '$dir/$cleanName';
       final File finalFile = await rawMerged.rename(newPath);
 
+      // We only update the state here! No forced sharing.
       state = state.copyWith(isMerging: false, mergedPdf: finalFile);
-
-      // Share immediately
-      await Share.shareXFiles(
-        [XFile(finalFile.path)],
-        text: 'Merged PDF from MintPDF',
-      );
 
     } catch (e) {
       state = state.copyWith(isMerging: false, error: "Merge failed: $e");

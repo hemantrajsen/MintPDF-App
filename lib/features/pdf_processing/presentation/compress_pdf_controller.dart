@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
 import 'package:mintpdf/features/pdf_processing/data/pdf_repository.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// State for the Compress PDF feature
 class CompressPdfState {
@@ -15,7 +14,7 @@ class CompressPdfState {
   final CompressionLevel selectedLevel;
   final CompressionResult? result;
   final String? error;
-  final double compressionProgress; // 0.0 to 1.0
+  final double compressionProgress; 
 
   const CompressPdfState({
     this.isLoading = false,
@@ -29,23 +28,19 @@ class CompressPdfState {
     this.compressionProgress = 0.0,
   });
 
-  /// Check if we have a PDF ready to compress
   bool get canCompress => selectedPdf != null && !isCompressing;
 
-  /// Get formatted original size
   String get originalSizeFormatted {
     if (originalSize == null) return '--';
     return _formatBytes(originalSize!);
   }
 
-  /// Get estimated size based on selected level
   String getEstimatedSize(IPdfRepository repo) {
     if (originalSize == null) return '--';
     final estimated = repo.estimateCompressedSize(originalSize!, selectedLevel);
     return _formatBytes(estimated);
   }
 
-  /// Get estimated reduction percentage
   String getEstimatedReduction(IPdfRepository repo) {
     if (originalSize == null) return '--';
     final estimated = repo.estimateCompressedSize(originalSize!, selectedLevel);
@@ -86,13 +81,11 @@ class CompressPdfState {
   }
 }
 
-/// Controller for Compress PDF feature
 class CompressPdfNotifier extends StateNotifier<CompressPdfState> {
   final Ref ref;
 
   CompressPdfNotifier(this.ref) : super(const CompressPdfState());
 
-  /// Pick a PDF file from device
   Future<void> pickPdf() async {
     try {
       state = state.copyWith(isLoading: true, error: null, clearResult: true);
@@ -117,19 +110,14 @@ class CompressPdfNotifier extends StateNotifier<CompressPdfState> {
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to pick PDF: $e',
-      );
+      state = state.copyWith(isLoading: false, error: 'Failed to pick PDF: $e');
     }
   }
 
-  /// Change compression level
   void setCompressionLevel(CompressionLevel level) {
     state = state.copyWith(selectedLevel: level, clearResult: true);
   }
 
-  /// Compress the selected PDF
   Future<void> compress() async {
     if (state.selectedPdf == null) return;
 
@@ -141,7 +129,6 @@ class CompressPdfNotifier extends StateNotifier<CompressPdfState> {
         clearResult: true,
       );
 
-      // Simulate progress (since actual compression doesn't report progress)
       _simulateProgress();
 
       final repository = ref.read(pdfRepositoryProvider);
@@ -164,7 +151,6 @@ class CompressPdfNotifier extends StateNotifier<CompressPdfState> {
     }
   }
 
-  /// Simulate progress for better UX
   void _simulateProgress() async {
     for (int i = 1; i <= 9; i++) {
       await Future.delayed(const Duration(milliseconds: 200));
@@ -173,64 +159,15 @@ class CompressPdfNotifier extends StateNotifier<CompressPdfState> {
     }
   }
 
-  // ...existing code until shareResult method...
-
-  /// Share/Save the compressed PDF
-  Future<void> shareResult(String? customName) async {
-    if (state.result == null) return;
-
-    try {
-      File fileToShare = state.result!.compressedFile;
-
-      // Rename if custom name provided
-      if (customName != null && customName.trim().isNotEmpty) {
-        final dir = fileToShare.parent.path;
-        // Clean the filename - remove any existing .pdf and add it back
-        String cleanName = customName.trim();
-        if (cleanName.toLowerCase().endsWith('.pdf')) {
-          cleanName = cleanName.substring(0, cleanName.length - 4);
-        }
-        // Remove any invalid characters
-        cleanName = cleanName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-        final newPath = '$dir/$cleanName.pdf';
-        
-        // Copy instead of rename to avoid issues
-        fileToShare = await fileToShare.copy(newPath);
-      }
-
-      // Verify file exists and is valid
-      if (!await fileToShare.exists()) {
-        throw Exception('Compressed file not found');
-      }
-
-      final fileSize = await fileToShare.length();
-      if (fileSize == 0) {
-        throw Exception('Compressed file is empty');
-      }
-
-      await Share.shareXFiles(
-        [XFile(fileToShare.path, mimeType: 'application/pdf')],
-        subject: 'Compressed PDF',
-      );
-    } catch (e) {
-      state = state.copyWith(error: 'Failed to share: $e');
-    }
-  }
-
-// ...existing code...
-
-  /// Clear selected PDF and start fresh
   void clearSelection() {
     state = state.copyWith(clearPdf: true, clearResult: true);
   }
 
-  /// Reset entire state
   void reset() {
     state = const CompressPdfState();
   }
 }
 
-/// Provider for Compress PDF feature
 final compressPdfProvider = StateNotifierProvider<CompressPdfNotifier, CompressPdfState>((ref) {
   return CompressPdfNotifier(ref);
 });

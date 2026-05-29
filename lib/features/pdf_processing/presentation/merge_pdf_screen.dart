@@ -1,6 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
+import 'package:mintpdf/core/utils/file_helper.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as p;
 import 'merge_pdf_controller.dart';
 
 class MergePdfScreen extends ConsumerWidget {
@@ -17,10 +22,10 @@ class MergePdfScreen extends ConsumerWidget {
           SnackBar(content: Text(next.error!), backgroundColor: AppColors.error),
         );
       }
+      
+      // Trigger our custom success dialog when the merge completes
       if (next.mergedPdf != null && prev?.mergedPdf != next.mergedPdf) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("PDF Merged Successfully!"), backgroundColor: AppColors.success),
-        );
+        _showSuccessDialog(context, next.mergedPdf!, controller);
       }
     });
 
@@ -40,13 +45,138 @@ class MergePdfScreen extends ConsumerWidget {
               onPressed: state.isMerging ? null : () => _showSaveDialog(context, controller),
               label: Text(state.isMerging ? "Merging..." : "Merge Now"),
               icon: state.isMerging 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white))
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.merge_type),
             )
           : null,
       body: state.selectedFiles.isEmpty
           ? _buildEmptyState(context, controller)
           : _buildList(context, state, controller),
+    );
+  }
+
+  // NEW: The Action Choice Dialog (Save / Share / Open / Done)
+  void _showSuccessDialog(BuildContext context, File generatedFile, MergePdfNotifier controller) {
+    final String fileName = p.basename(generatedFile.path);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (ctx) {
+        return AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.check_circle, color: AppColors.success),
+              SizedBox(width: 10),
+              Text("PDF Merged!"),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Your combined PDF is ready:", style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  fileName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              ListTile(
+                leading: const Icon(Icons.download_rounded, color: Colors.blue),
+                title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Choose local directory destination"),
+                onTap: () async {
+                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, fileName);
+                  if (savedPath != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(height: 1),
+
+              ListTile(
+                leading: const Icon(Icons.share_rounded, color: Colors.purple),
+                title: const Text("Share File", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Send via messaging or apps"),
+                onTap: () {
+                  Share.shareXFiles([XFile(generatedFile.path)], text: 'Merged with MintPDF');
+                },
+              ),
+              const Divider(height: 1),
+
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text("Open PDF", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Preview combined content"),
+                onTap: () {
+                  OpenFile.open(generatedFile.path);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                controller.reset(); // Wipes the selected files so they can start fresh
+              },
+              child: const Text("Done"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSaveDialog(BuildContext context, MergePdfNotifier controller) {
+    final textController = TextEditingController(text: "Merged_${DateTime.now().millisecondsSinceEpoch}");
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Merge PDFs"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Filename", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: textController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                suffixText: ".pdf",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              controller.mergeDocuments(textController.text);
+            },
+            child: const Text("Merge"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -99,7 +229,7 @@ class MergePdfScreen extends ConsumerWidget {
               final fileName = file.path.split('/').last;
               
               return Card(
-                key: ValueKey(file.path), // Important for ReorderableListView
+                key: ValueKey(file.path),
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 elevation: 0,
                 color: Theme.of(context).cardTheme.color,
@@ -133,42 +263,6 @@ class MergePdfScreen extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showSaveDialog(BuildContext context, MergePdfNotifier controller) {
-    final textController = TextEditingController(text: "Merged_${DateTime.now().millisecondsSinceEpoch}");
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Merge PDFs"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Filename", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: textController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                suffixText: ".pdf",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              controller.mergeDocuments(textController.text);
-            },
-            child: const Text("Merge"),
-          ),
-        ],
-      ),
     );
   }
 }

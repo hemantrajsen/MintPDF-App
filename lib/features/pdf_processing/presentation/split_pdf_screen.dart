@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
+import 'package:mintpdf/core/utils/file_helper.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as p;
 import 'split_pdf_controller.dart';
 
 class SplitPdfScreen extends ConsumerStatefulWidget {
@@ -36,9 +38,13 @@ class _SplitPdfScreenState extends ConsumerState<SplitPdfScreen> {
           ),
         );
       }
-      if (next.extractedPdf != null &&
-          previous?.extractedPdf != next.extractedPdf) {
-        _showSuccessDialog(context, next.extractedPdf!);
+      
+      // Trigger our unified success dialog when extraction completes
+      if (next.extractedPdf != null && previous?.extractedPdf != next.extractedPdf) {
+        final originalName = next.selectedFile != null 
+            ? p.basename(next.selectedFile!.path) 
+            : 'document.pdf';
+        _showSuccessDialog(context, next.extractedPdf!, originalName, controller);
       }
     });
 
@@ -59,6 +65,122 @@ class _SplitPdfScreenState extends ConsumerState<SplitPdfScreen> {
       body: state.selectedFile == null
           ? _buildEmptyState(context, controller, state)
           : _buildSplitView(context, state, controller),
+    );
+  }
+
+  // THE UNIFIED SUCCESS DIALOG (Save / Share / Open / Done)
+  void _showSuccessDialog(
+    BuildContext context, 
+    File generatedFile, 
+    String originalName, 
+    SplitPdfNotifier controller
+  ) {
+    // Generate a default save name based on the original file
+    final String baseName = p.basenameWithoutExtension(originalName);
+    final String defaultSaveName = '${baseName}_split.pdf';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle, color: AppColors.success, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'PDF Split Complete!',
+                style: TextStyle(fontSize: 18),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Your extracted pages are ready:", style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  defaultSaveName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Option 1: Save to local device
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.download_rounded, color: Colors.blue),
+                title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Choose local directory destination"),
+                onTap: () async {
+                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, defaultSaveName);
+                  if (savedPath != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 2: Share File 
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.share_rounded, color: Colors.purple),
+                title: const Text("Share File", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Send via messaging or apps"),
+                onTap: () {
+                  Share.shareXFiles([XFile(generatedFile.path)], text: 'Extracted with MintPDF');
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 3: Quick Open View
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text("Open PDF", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Preview extracted content"),
+                onTap: () {
+                  OpenFile.open(generatedFile.path);
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              controller.clearFile();
+              _rangeController.clear();
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -153,7 +275,7 @@ class _SplitPdfScreenState extends ConsumerState<SplitPdfScreen> {
               border: OutlineInputBorder(),
               helperText: "Use commas for single pages and hyphens for ranges",
             ),
-            keyboardType: TextInputType.datetime, // Shows numbers and symbols
+            keyboardType: TextInputType.datetime, 
           ),
           const SizedBox(height: 32),
           FilledButton(
@@ -181,34 +303,6 @@ class _SplitPdfScreenState extends ConsumerState<SplitPdfScreen> {
                     child: CircularProgressIndicator(color: Colors.white),
                   )
                 : const Text("Extract Pages"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSuccessDialog(BuildContext context, File file) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Success!"),
-        content: const Text("Pages extracted successfully."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
-          ),
-          TextButton(
-            onPressed: () {
-              Share.shareXFiles([XFile(file.path)]);
-            },
-            child: const Text("Share"),
-          ),
-          FilledButton(
-            onPressed: () {
-              OpenFile.open(file.path);
-            },
-            child: const Text("Open"),
           ),
         ],
       ),
