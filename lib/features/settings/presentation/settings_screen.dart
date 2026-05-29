@@ -60,15 +60,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
-          
+
           // ▼▼▼ YOUR SIGNATURE / DEVELOPER CREDIT ▼▼▼
           ListTile(
             leading: const Icon(Icons.code),
             title: const Text('Developer'),
-            subtitle: const Text('Hemant Raj Sen'), 
+            subtitle: const Text('Hemant Raj Sen'),
           ),
-          // ▲▲▲ END OF SIGNATURE ▲▲▲
 
+          // ▲▲▲ END OF SIGNATURE ▲▲▲
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('Privacy Policy'),
@@ -93,16 +93,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               );
             },
           ),
-          
+
           // Optional: A nice footer
           const SizedBox(height: 40),
           Center(
             child: Text(
               'Made with ❤️ by Hemant',
-              style: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
             ),
           ),
           const SizedBox(height: 20),
@@ -111,8 +108,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // ... (Keep the rest of your helper methods like _buildSectionHeader, _getThemeText, etc. exactly the same) ...
-  
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
