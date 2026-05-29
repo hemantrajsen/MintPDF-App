@@ -14,6 +14,34 @@ enum CompressionLevel {
   extreme, // ~70-90% reduction, lower quality
 }
 
+/// Defines the page layout for Image to PDF
+enum ImagePdfOrientation {
+  auto,      // Page size matches image exactly
+  portrait,  // Standard A4 Portrait (Centered)
+  landscape, // Standard A4 Landscape (Centered)
+}
+
+/// Data model to hold both the file and its specific layout settings
+class PdfImageItem {
+  final File file;
+  final ImagePdfOrientation orientation;
+
+  PdfImageItem({
+    required this.file,
+    this.orientation = ImagePdfOrientation.auto,
+  });
+
+  PdfImageItem copyWith({
+    File? file,
+    ImagePdfOrientation? orientation,
+  }) {
+    return PdfImageItem(
+      file: file ?? this.file,
+      orientation: orientation ?? this.orientation,
+    );
+  }
+}
+
 /// Result of PDF compression with statistics
 class CompressionResult {
   final File compressedFile;
@@ -43,8 +71,9 @@ class CompressionResult {
 // Defines the contract for our PDF operations
 abstract class IPdfRepository {
   Future<File> createPdfFromImages(
-    List<File> images, {
+    List<PdfImageItem> imageItems, {
     PdfCompressionLevel quality = PdfCompressionLevel.normal,
+    ImagePdfOrientation? globalOrientationOverride,
   });
   Future<CompressionResult> compressPdf(
     File pdfFile, {
@@ -132,60 +161,93 @@ class PdfRepository implements IPdfRepository {
 
   @override
   int estimateCompressedSize(int originalSize, CompressionLevel level) {
-    // Estimates based on destructive compression (rasterization)
     switch (level) {
       case CompressionLevel.low:
-        return (originalSize * 0.70).round(); // ~30% reduction
+        return (originalSize * 0.70).round();
       case CompressionLevel.medium:
-        return (originalSize * 0.50).round(); // ~50% reduction
+        return (originalSize * 0.50).round();
       case CompressionLevel.high:
-        return (originalSize * 0.30).round(); // ~70% reduction
+        return (originalSize * 0.30).round();
       case CompressionLevel.extreme:
-        return (originalSize * 0.15).round(); // ~85% reduction
+        return (originalSize * 0.15).round();
     }
   }
 
-   @override
+  @override
   Future<File> createPdfFromImages(
-    List<File> images, {
+    List<PdfImageItem> imageItems, {
     PdfCompressionLevel quality = PdfCompressionLevel.normal,
+    ImagePdfOrientation? globalOrientationOverride,
   }) async {
     final PdfDocument document = PdfDocument();
     document.compressionLevel = quality;
 
-    for (final imageFile in images) {
+    for (final item in imageItems) {
       final Uint8List compressedBytes = await _compressImage(
-        imageFile,
+        item.file,
         quality,
       );
       PdfBitmap bitmap = PdfBitmap(compressedBytes);
 
-      // 1. Create a new section for each image
       final PdfSection section = document.sections!.add();
-      
-      // 2. Remove all margins so the image perfectly touches the edges
+      // Disable default Syncfusion margins so we control the canvas entirely
       section.pageSettings.margins.all = 0;
-      
-      // 3. Set the PDF page size exactly to the image's dimensions
-      // This automatically handles vertical/horizontal orientations and aspect ratios!
-      section.pageSettings.size = ui.Size(
-        bitmap.width.toDouble(), 
-        bitmap.height.toDouble()
-      );
-      
-      // 4. Add the page to the configured section
-      final PdfPage page = section.pages.add();
 
-      // 5. Draw the image using its exact natural dimensions
-      page.graphics.drawImage(
-        bitmap,
-        ui.Rect.fromLTWH(
-          0,
-          0,
-          bitmap.width.toDouble(),
-          bitmap.height.toDouble(),
-        ),
-      );
+      final activeOrientation = globalOrientationOverride ?? item.orientation;
+
+      if (activeOrientation == ImagePdfOrientation.auto) {
+        // --- LIGHTWEIGHT AUTO MODE ---
+        double rawWidth = bitmap.width.toDouble();
+        double rawHeight = bitmap.height.toDouble();
+        const double maxPdfDimension = 842.0; 
+        
+        double scale = 1.0;
+        if (rawWidth > maxPdfDimension || rawHeight > maxPdfDimension) {
+          scale = maxPdfDimension / (rawWidth > rawHeight ? rawWidth : rawHeight);
+        }
+
+        double normalizedWidth = rawWidth * scale;
+        double normalizedHeight = rawHeight * scale;
+
+        const double borderMargin = 20.0;
+        double pageWidth = normalizedWidth + (borderMargin * 2);
+        double pageHeight = normalizedHeight + (borderMargin * 2);
+
+        section.pageSettings.size = ui.Size(pageWidth, pageHeight);
+        final PdfPage page = section.pages.add();
+
+        page.graphics.drawImage(
+          bitmap,
+          ui.Rect.fromLTWH(borderMargin, borderMargin, normalizedWidth, normalizedHeight),
+        );
+
+      } else {
+        // --- A4 PORTRAIT / LANDSCAPE ---
+        section.pageSettings.size = PdfPageSize.a4;
+        section.pageSettings.orientation = activeOrientation == ImagePdfOrientation.portrait
+            ? PdfPageOrientation.portrait
+            : PdfPageOrientation.landscape;
+
+        final PdfPage page = section.pages.add();
+        
+        double pageWidth = page.getClientSize().width;
+        double pageHeight = page.getClientSize().height;
+
+        double widthRatio = pageWidth / bitmap.width;
+        double heightRatio = pageHeight / bitmap.height;
+        double scale = widthRatio < heightRatio ? widthRatio : heightRatio;
+
+        double drawWidth = bitmap.width * scale;
+        double drawHeight = bitmap.height * scale;
+
+        double xOffset = (pageWidth - drawWidth) / 2;
+        double yOffset = (pageHeight - drawHeight) / 2;
+
+        page.graphics.drawImage(
+          bitmap,
+          ui.Rect.fromLTWH(xOffset, yOffset, drawWidth, drawHeight),
+        );
+      }
     }
 
     final List<int> bytes = await document.save();
@@ -199,7 +261,7 @@ class PdfRepository implements IPdfRepository {
     return await outputFile.writeAsBytes(bytes);
   }
 
-  @override
+     @override
   Future<CompressionResult> compressPdf(
     File pdfFile, {
     CompressionLevel level = CompressionLevel.medium,
@@ -216,7 +278,7 @@ class PdfRepository implements IPdfRepository {
 
     // 3. Settings
     int jpegQuality = 75;
-    double scale = 1.0; // 1.0 = 72 DPI
+    double scale = 1.0; 
 
     switch (level) {
       case CompressionLevel.low:
@@ -241,43 +303,52 @@ class PdfRepository implements IPdfRepository {
     for (int i = 0; i < pageCount; i++) {
       final page = document.pages[i];
 
-      // Render to image
+      // --- THE CRITICAL FIX ---
+      // We pass fullWidth and fullHeight to force pdfrx to SCALE the page
+      // rather than cropping a tiny viewport window.
       final pageImage = await page.render(
+        fullWidth: page.width * scale,
+        fullHeight: page.height * scale,
         width: (page.width * scale).toInt(),
         height: (page.height * scale).toInt(),
       );
 
       if (pageImage == null) continue;
 
-      // Get bytes
       final ui.Image image = await pageImage.createImage();
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData != null) {
         final Uint8List pngBytes = byteData.buffer.asUint8List();
 
-        // Compress to JPEG in Isolate
         final Uint8List compressedBytes = await compute(_compressImageBytes, {
           'bytes': pngBytes,
           'quality': jpegQuality,
         });
 
-        // Add to new PDF
-        final PdfPage newPage = syncfusionPdf.pages.add();
+        final PdfSection section = syncfusionPdf.sections!.add();
+        section.pageSettings.margins.all = 0;
+        
+        bool isLandscape = page.width > page.height;
+        
+        // Feed Syncfusion the strict Portrait dimensions it demands internally
+        double shortSide = page.width < page.height ? page.width : page.height;
+        double longSide = page.width > page.height ? page.width : page.height;
+        
+        section.pageSettings.size = ui.Size(shortSide, longSide);
+        section.pageSettings.orientation = isLandscape 
+            ? PdfPageOrientation.landscape 
+            : PdfPageOrientation.portrait;
+
+        final PdfPage newPage = section.pages.add();
         final PdfBitmap bitmap = PdfBitmap(compressedBytes);
 
+        // Draw it stretching exactly to the generated client size bounds
         newPage.graphics.drawImage(
           bitmap,
-          ui.Rect.fromLTWH(
-            0,
-            0,
-            newPage.getClientSize().width,
-            newPage.getClientSize().height,
-          ),
+          ui.Rect.fromLTWH(0, 0, newPage.getClientSize().width, newPage.getClientSize().height),
         );
       }
-
-      // Dispose image to free memory
       image.dispose();
     }
 
@@ -310,7 +381,13 @@ class PdfRepository implements IPdfRepository {
 
       for (int i = 0; i < inputDoc.pages.count; i++) {
         final PdfPage sourcePage = inputDoc.pages[i];
-        final PdfPage newPage = document.pages.add();
+        
+        // Match the exact size of the page we are copying
+        final PdfSection section = document.sections!.add();
+        section.pageSettings.margins.all = 0;
+        section.pageSettings.size = sourcePage.size;
+
+        final PdfPage newPage = section.pages.add();
         final PdfTemplate template = sourcePage.createTemplate();
         newPage.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
       }
@@ -336,7 +413,6 @@ class PdfRepository implements IPdfRepository {
     final PdfDocument inputDoc = PdfDocument(inputBytes: bytes);
     final int pageCount = inputDoc.pages.count;
 
-    // Parse range
     final List<int> pagesToExtract = _parsePageRange(pageRange, pageCount);
 
     if (pagesToExtract.isEmpty) {
@@ -346,7 +422,13 @@ class PdfRepository implements IPdfRepository {
 
     for (final index in pagesToExtract) {
       final PdfPage sourcePage = inputDoc.pages[index];
-      final PdfPage newPage = document.pages.add();
+      
+      // Match the exact size of the page we are extracting
+      final PdfSection section = document.sections!.add();
+      section.pageSettings.margins.all = 0;
+      section.pageSettings.size = sourcePage.size;
+
+      final PdfPage newPage = section.pages.add();
       final PdfTemplate template = sourcePage.createTemplate();
       newPage.graphics.drawPdfTemplate(template, const ui.Offset(0, 0));
     }
@@ -379,7 +461,6 @@ class PdfRepository implements IPdfRepository {
           final end = int.tryParse(rangeParts[1]);
 
           if (start != null && end != null) {
-            // Adjust for 1-based input to 0-based index
             final s = start - 1;
             final e = end - 1;
 

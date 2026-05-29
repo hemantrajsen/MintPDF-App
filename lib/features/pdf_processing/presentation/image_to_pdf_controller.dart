@@ -4,11 +4,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:mintpdf/features/pdf_processing/data/pdf_repository.dart';
 
 
 class ImageToPdfState {
   final bool isLoading;
-  final List<File> selectedImages;
+  final List<PdfImageItem> selectedImages;
   final File? generatedPdf;
   final String? error;
 
@@ -21,7 +22,7 @@ class ImageToPdfState {
 
   ImageToPdfState copyWith({
     bool? isLoading,
-    List<File>? selectedImages,
+    List<PdfImageItem>? selectedImages,
     File? generatedPdf,
     String? error,
   }) {
@@ -29,11 +30,10 @@ class ImageToPdfState {
       isLoading: isLoading ?? this.isLoading,
       selectedImages: selectedImages ?? this.selectedImages,
       generatedPdf: generatedPdf ?? this.generatedPdf,
-      error: error, // If we pass null, it clears the error
+      error: error,
     );
   }
 }
-
 
 class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
   final Ref ref;
@@ -41,15 +41,15 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
 
   ImageToPdfNotifier(this.ref) : super(const ImageToPdfState());
 
-
   Future<void> pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
       if (images.isNotEmpty) {
-        final imageFiles = images.map((x) => File(x.path)).toList();
+        // Map files to our new PdfImageItem objects (defaults to Auto)
+        final imageItems = images.map((x) => PdfImageItem(file: File(x.path))).toList();
         
         state = state.copyWith(
-          selectedImages: [...state.selectedImages, ...imageFiles],
+          selectedImages: [...state.selectedImages, ...imageItems],
           error: null,
         );
       }
@@ -59,27 +59,44 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
   }
 
   void removeImage(int index) {
-    final updatedList = List<File>.from(state.selectedImages);
+    final updatedList = List<PdfImageItem>.from(state.selectedImages);
     updatedList.removeAt(index);
     state = state.copyWith(selectedImages: updatedList);
   }
 
   void reorderImages(int oldIndex, int newIndex) {
-    final updatedList = List<File>.from(state.selectedImages);
-    final File item = updatedList.removeAt(oldIndex);
+    final updatedList = List<PdfImageItem>.from(state.selectedImages);
+    final item = updatedList.removeAt(oldIndex);
     updatedList.insert(newIndex, item);
     state = state.copyWith(selectedImages: updatedList);
   }
 
-  Future<void> convert(String fileName, PdfCompressionLevel quality) async {
+  // NEW: Update orientation for a single item
+  void updateItemOrientation(int index, ImagePdfOrientation newOrientation) {
+    final updatedList = List<PdfImageItem>.from(state.selectedImages);
+    final item = updatedList[index];
+    updatedList[index] = item.copyWith(orientation: newOrientation);
+    state = state.copyWith(selectedImages: updatedList);
+  }
+
+  // Updated convert method to accept the global override
+  Future<void> convert(
+    String fileName, 
+    PdfCompressionLevel quality, 
+    ImagePdfOrientation? globalOrientationOverride,
+  ) async {
     if (state.selectedImages.isEmpty) return;
 
     state = state.copyWith(isLoading: true, error: null);
 
-     try {
+    try {
       final repository = ref.read(pdfRepositoryProvider);
       
-      File rawPdf = await repository.createPdfFromImages(state.selectedImages, quality: quality);
+      File rawPdf = await repository.createPdfFromImages(
+        state.selectedImages, 
+        quality: quality,
+        globalOrientationOverride: globalOrientationOverride,
+      );
 
       final String dir = rawPdf.parent.path;
       final String cleanName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
@@ -87,16 +104,10 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
       
       final File namedPdf = await rawPdf.rename(newPath);
 
-      state = state.copyWith(
-        isLoading: false,
-        generatedPdf: namedPdf,
-      );
+      state = state.copyWith(isLoading: false, generatedPdf: namedPdf);
 
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: "Conversion failed: $e",
-      );
+      state = state.copyWith(isLoading: false, error: "Conversion failed: $e");
     }
   }
   
