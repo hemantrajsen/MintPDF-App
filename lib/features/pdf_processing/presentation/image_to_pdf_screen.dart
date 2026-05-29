@@ -1,10 +1,14 @@
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_file/open_file.dart'; // For opening the result
 import 'package:mintpdf/core/theme/app_colors.dart';
+import 'package:mintpdf/core/utils/file_helper.dart'; // Added for file saving
+import 'package:share_plus/share_plus.dart'; // Added for explicit share action
 import 'image_to_pdf_controller.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import 'package:path/path.dart' as p;
 
 class ImageToPdfScreen extends ConsumerWidget {
   const ImageToPdfScreen({super.key});
@@ -15,17 +19,11 @@ class ImageToPdfScreen extends ConsumerWidget {
     final state = ref.watch(imageToPdfProvider);
     final controller = ref.read(imageToPdfProvider.notifier);
 
-    // 2. Listen for Success (Side Effect)
+    // 2. Listen for Success or Errors (Side Effects)
     ref.listen(imageToPdfProvider, (previous, next) {
       if (next.generatedPdf != null && previous?.generatedPdf != next.generatedPdf) {
-        // success! Open the file immediately
-        OpenFile.open(next.generatedPdf!.path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("PDF Created Successfully!"),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        // Show our feature-rich custom success options dialog!
+        _showSuccessDialog(context, next.generatedPdf!, controller);
       }
       
       if (next.error != null) {
@@ -56,7 +54,7 @@ class ImageToPdfScreen extends ConsumerWidget {
               label: Text(state.isLoading ? "Converting..." : "Create PDF"),
               icon: state.isLoading 
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                  : const Icon(Icons.save_as), //changed icon to represent saving
+                  : const Icon(Icons.save_as),
             )
           : null,
           
@@ -66,21 +64,110 @@ class ImageToPdfScreen extends ConsumerWidget {
     );
   }
 
-  // 2. ADD: The "Save Options" Dialog
+  // 1. NEW: The Action Choice Dialog (Save / Share / Open / Done)
+  void _showSuccessDialog(BuildContext context, File generatedFile, ImageToPdfNotifier controller) {
+    final String fileName = p.basename(generatedFile.path);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Force intentional choice
+      builder: (ctx) {
+        return AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.check_circle, color: AppColors.success),
+              SizedBox(width: 10),
+              Text("PDF Generated!"),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Your PDF is ready for your next steps:", style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  fileName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Option 1: Save to local device
+              ListTile(
+                leading: const Icon(Icons.download_rounded, color: Colors.blue),
+                title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Choose local directory destination"),
+                onTap: () async {
+                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, fileName);
+                  if (savedPath != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 2: Share File via System Sheet
+              ListTile(
+                leading: const Icon(Icons.share_rounded, color: Colors.purple),
+                title: const Text("Share File", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Send via messaging or cloud apps"),
+                onTap: () {
+                  Share.shareXFiles([XFile(generatedFile.path)], text: 'Created with MintPDF');
+                },
+              ),
+              const Divider(height: 1),
+
+              // Option 3: Quick Open View
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text("Open PDF", style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: const Text("Preview content immediately"),
+                onTap: () {
+                  OpenFile.open(generatedFile.path);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                controller.reset(); // Wipe selected images cache clean for the next usage
+              },
+              child: const Text("Done"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 2. The File Configuration Dialog
   void _showSaveDialog(BuildContext context, ImageToPdfNotifier controller) {
     final textController = TextEditingController(text: "Scan_${DateTime.now().hour}_${DateTime.now().minute}");
-    
-    // Default quality
     PdfCompressionLevel selectedQuality = PdfCompressionLevel.normal;
 
     showDialog(
       context: context,
       builder: (ctx) {
-        // StatefulBuilder allows the Dialog to update itself (for the Dropdown)
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text("Save PDF"),
+              title: const Text("Configure PDF"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +188,6 @@ class ImageToPdfScreen extends ConsumerWidget {
                   const Text("Quality / Size", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   const SizedBox(height: 8),
                   
-                  // The Quality Dropdown
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
@@ -128,7 +214,6 @@ class ImageToPdfScreen extends ConsumerWidget {
                         ],
                         onChanged: (value) {
                           if (value != null) {
-                            // This 'setState' only rebuilds the Dialog, not the whole screen
                             setState(() {
                               selectedQuality = value;
                             });
@@ -147,10 +232,9 @@ class ImageToPdfScreen extends ConsumerWidget {
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    // Pass BOTH name and quality to the controller
                     controller.convert(textController.text, selectedQuality);
                   },
-                  child: const Text("Save"),
+                  child: const Text("Generate"),
                 ),
               ],
             );
@@ -169,7 +253,6 @@ class ImageToPdfScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              // ignore: deprecated_member_use
               color: Theme.of(context).primaryColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
@@ -204,7 +287,6 @@ class ImageToPdfScreen extends ConsumerWidget {
   Widget _buildImageGrid(BuildContext context, ImageToPdfState state, ImageToPdfNotifier controller) {
     return Column(
       children: [
-         // SUBTLE HINT
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Row(
@@ -225,72 +307,69 @@ class ImageToPdfScreen extends ConsumerWidget {
 
         Expanded(
           child: ReorderableGridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3, // 3 Images per row
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 0.8,
-          ),
-          itemCount: state.selectedImages.length,
-          onReorder: (oldIndex, newIndex) {
-            controller.reorderImages(oldIndex, newIndex);
-          },
-          itemBuilder: (context, index) {
-            final file = state.selectedImages[index];
-            return Container(
-              key: ValueKey(file.path),
-              child: Stack(
-                children: [
-                  // The Image Thumbnail
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  // The Delete Button (Top Right)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => controller.removeImage(index),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: state.selectedImages.length,
+            onReorder: (oldIndex, newIndex) {
+              controller.reorderImages(oldIndex, newIndex);
+            },
+            itemBuilder: (context, index) {
+              final file = state.selectedImages[index];
+              return Container(
+                key: ValueKey(file.path),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          file,
+                          fit: BoxFit.cover,
                         ),
-                        child: const Icon(Icons.close, size: 16, color: Colors.white),
                       ),
                     ),
-                  ),
-                  // Number Badge (Bottom Left)
-                  Positioned(
-                    bottom: 4,
-                    left: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "${index + 1}",
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => controller.removeImage(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "${index + 1}",
+                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-      ),
-     ],
+      ],
     );
   }
 }

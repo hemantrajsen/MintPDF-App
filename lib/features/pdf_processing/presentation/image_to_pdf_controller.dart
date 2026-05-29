@@ -83,7 +83,7 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
     // 1. Set Loading
     state = state.copyWith(isLoading: true, error: null);
 
-    try {
+     try {
       // 2. Call our Repository (The Engine)
       final repository = ref.read(pdfRepositoryProvider);
       
@@ -91,26 +91,17 @@ class ImageToPdfNotifier extends StateNotifier<ImageToPdfState> {
       File rawPdf = await repository.createPdfFromImages(state.selectedImages, quality: quality);
 
       // 2. Rename it (Privacy-First: We rename the temp file before sharing)
-      // We get the directory of the raw file
       final String dir = rawPdf.parent.path;
-      // Ensure it ends with .pdf
       final String cleanName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
       final String newPath = '$dir/$cleanName';
       
       // Rename the file
       final File namedPdf = await rawPdf.rename(newPath);
 
-      // 3. Success!
+      // 3. Success! Update state only (Let the UI choose how to display the success options)
       state = state.copyWith(
         isLoading: false,
         generatedPdf: namedPdf,
-      );
-
-      // 4. Trigger the "Save/Share" Sheet immediately
-      // This lets the user pick "Save to Files" (iOS) or "Copy to..." (Android)
-      await Share.shareXFiles(
-        [XFile(namedPdf.path)], 
-        text: 'Here is your PDF created with MintPDF',
       );
 
     } catch (e) {

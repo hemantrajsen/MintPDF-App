@@ -145,7 +145,7 @@ class PdfRepository implements IPdfRepository {
     }
   }
 
-  @override
+   @override
   Future<File> createPdfFromImages(
     List<File> images, {
     PdfCompressionLevel quality = PdfCompressionLevel.normal,
@@ -154,20 +154,36 @@ class PdfRepository implements IPdfRepository {
     document.compressionLevel = quality;
 
     for (final imageFile in images) {
-      final PdfPage page = document.pages.add();
       final Uint8List compressedBytes = await _compressImage(
         imageFile,
         quality,
       );
       PdfBitmap bitmap = PdfBitmap(compressedBytes);
 
+      // 1. Create a new section for each image
+      final PdfSection section = document.sections!.add();
+      
+      // 2. Remove all margins so the image perfectly touches the edges
+      section.pageSettings.margins.all = 0;
+      
+      // 3. Set the PDF page size exactly to the image's dimensions
+      // This automatically handles vertical/horizontal orientations and aspect ratios!
+      section.pageSettings.size = ui.Size(
+        bitmap.width.toDouble(), 
+        bitmap.height.toDouble()
+      );
+      
+      // 4. Add the page to the configured section
+      final PdfPage page = section.pages.add();
+
+      // 5. Draw the image using its exact natural dimensions
       page.graphics.drawImage(
         bitmap,
         ui.Rect.fromLTWH(
           0,
           0,
-          page.getClientSize().width,
-          page.getClientSize().height,
+          bitmap.width.toDouble(),
+          bitmap.height.toDouble(),
         ),
       );
     }
