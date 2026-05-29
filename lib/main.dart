@@ -7,7 +7,6 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() async {
-  // [CHANGE 3] Add this block to initialize the cache
   WidgetsFlutterBinding.ensureInitialized();
   
   Pdfrx.getCacheDirectory = () async {

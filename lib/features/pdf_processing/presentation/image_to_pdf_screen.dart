@@ -15,14 +15,12 @@ class ImageToPdfScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Listen to the state
+
     final state = ref.watch(imageToPdfProvider);
     final controller = ref.read(imageToPdfProvider.notifier);
 
-    // 2. Listen for Success or Errors (Side Effects)
     ref.listen(imageToPdfProvider, (previous, next) {
       if (next.generatedPdf != null && previous?.generatedPdf != next.generatedPdf) {
-        // Show our feature-rich custom success options dialog!
         _showSuccessDialog(context, next.generatedPdf!, controller);
       }
       
@@ -45,7 +43,6 @@ class ImageToPdfScreen extends ConsumerWidget {
         ],
       ),
       
-      // Floating Action Button (The "Convert" Trigger)
       floatingActionButton: state.selectedImages.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: state.isLoading 
@@ -64,7 +61,6 @@ class ImageToPdfScreen extends ConsumerWidget {
     );
   }
 
-  // 1. NEW: The Action Choice Dialog (Save / Share / Open / Done)
   void _showSuccessDialog(BuildContext context, File generatedFile, ImageToPdfNotifier controller) {
     final String fileName = p.basename(generatedFile.path);
 
@@ -101,7 +97,6 @@ class ImageToPdfScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               
-              // Option 1: Save to local device
               ListTile(
                 leading: const Icon(Icons.download_rounded, color: Colors.blue),
                 title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
@@ -120,7 +115,6 @@ class ImageToPdfScreen extends ConsumerWidget {
               ),
               const Divider(height: 1),
 
-              // Option 2: Share File via System Sheet
               ListTile(
                 leading: const Icon(Icons.share_rounded, color: Colors.purple),
                 title: const Text("Share File", style: TextStyle(fontWeight: FontWeight.w500)),
@@ -131,7 +125,6 @@ class ImageToPdfScreen extends ConsumerWidget {
               ),
               const Divider(height: 1),
 
-              // Option 3: Quick Open View
               ListTile(
                 leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
                 title: const Text("Open PDF", style: TextStyle(fontWeight: FontWeight.w500)),
@@ -156,7 +149,6 @@ class ImageToPdfScreen extends ConsumerWidget {
     );
   }
 
-  // 2. The File Configuration Dialog
   void _showSaveDialog(BuildContext context, ImageToPdfNotifier controller) {
     final textController = TextEditingController(text: "Scan_${DateTime.now().hour}_${DateTime.now().minute}");
     PdfCompressionLevel selectedQuality = PdfCompressionLevel.normal;
@@ -244,7 +236,6 @@ class ImageToPdfScreen extends ConsumerWidget {
     );
   }
 
-  // --- Sub-Widget: Empty State ---
   Widget _buildEmptyState(BuildContext context, ImageToPdfNotifier controller) {
     return Center(
       child: Column(
@@ -283,7 +274,6 @@ class ImageToPdfScreen extends ConsumerWidget {
     );
   }
 
-  // --- Sub-Widget: Image Grid ---
   Widget _buildImageGrid(BuildContext context, ImageToPdfState state, ImageToPdfNotifier controller) {
     return Column(
       children: [

@@ -8,7 +8,6 @@ import 'package:file_picker/file_picker.dart'; // Make sure to add this package
 /// A utility class to handle safe file operations and caching.
 /// strictly follows Android Scoped Storage rules.
 class FileHelper {
-  // 1. Private constructor for Singleton
   FileHelper._();
   static final FileHelper instance = FileHelper._();
 
@@ -36,28 +35,23 @@ class FileHelper {
     return await file.copy(newPath);
   }
 
-  /// NEW: Safely saves a cached file to a user-selected directory.
+  /// Safely saves a cached file to a user-selected directory.
   /// Returns the saved file path if successful, or null if the user canceled.
   Future<String?> saveFileToUserDevice(File cachedFile, String suggestedName) async {
     try {
-      // 1. Let the user pick a directory (e.g., Downloads, Documents)
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
         dialogTitle: 'Select where to save your PDF',
       );
 
-      // 2. If the user cancels the picker, return null
       if (selectedDirectory == null) return null;
 
-      // 3. Ensure the name ends with .pdf
       final String safeName = suggestedName.endsWith('.pdf') 
           ? suggestedName 
           : '$suggestedName.pdf';
 
-      // 4. Construct the final save path
       final String finalPath = '$selectedDirectory/$safeName';
       final File savedFile = File(finalPath);
 
-      // 5. Copy the file from our cache to the user's selected location
       await cachedFile.copy(savedFile.path);
 
       return savedFile.path;
@@ -76,7 +70,6 @@ class FileHelper {
         await tempDir.delete(recursive: true);
       }
     } catch (e) {
-      // Fail silently - it's just cache clearing
       debugPrint('Warning: Failed to clear cache: $e');
     }
   }
