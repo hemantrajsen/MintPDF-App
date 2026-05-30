@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
-import 'package:mintpdf/core/utils/file_helper.dart';
 import 'package:mintpdf/features/pdf_processing/data/providers.dart';
 import 'package:mintpdf/features/pdf_processing/data/pdf_repository.dart';
 import 'package:open_file/open_file.dart';
@@ -61,9 +61,6 @@ class CompressPdfScreen extends ConsumerWidget {
     String originalName,
     CompressPdfNotifier controller
   ) {
-    // Generate a default save name based on the original file
-    final String baseName = p.basenameWithoutExtension(originalName);
-    final String defaultSaveName = '${baseName}_compressed.pdf';
     final File generatedFile = result.compressedFile;
 
     showDialog(
@@ -124,14 +121,35 @@ class CompressPdfScreen extends ConsumerWidget {
                 leading: const Icon(Icons.download_rounded, color: Colors.blue),
                 title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
                 onTap: () async {
-                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, defaultSaveName);
-                  if (savedPath != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
-                        backgroundColor: AppColors.success,
-                      ),
+                  try {
+                    final String defaultSaveName = p.basename(generatedFile.path);
+                    // 1. Read the raw binary data of the processed PDF
+                    final bytes = await generatedFile.readAsBytes();
+
+                    // 2. Ask OS for the destination path AND hand it the bytes simultaneously
+                    final String? outputFile = await FilePicker.platform.saveFile(
+                      dialogTitle: 'Save PDF Document',
+                      fileName: defaultSaveName, // Ensure your dialog defines defaultSaveName above this!
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf'],
+                      bytes: bytes, // <--- The magic key for Scoped Storage!
                     );
+
+                    // 3. The OS handles the heavy lifting
+                    if (outputFile != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Document saved safely to your device!"), 
+                          backgroundColor: AppColors.success
+                        )
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(content: Text("Error saving file: $e"), backgroundColor: AppColors.error)
+                       );
+                    }
                   }
                 },
               ),

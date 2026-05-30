@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
-import 'package:mintpdf/core/utils/file_helper.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
@@ -132,16 +132,34 @@ class _ProtectPdfScreenState extends ConsumerState<ProtectPdfScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.download_rounded, color: Colors.blue),
                 title: const Text("Save to Device", style: TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: const Text("Choose local directory destination"),
                 onTap: () async {
-                  final savedPath = await FileHelper.instance.saveFileToUserDevice(generatedFile, defaultSaveName);
-                  if (savedPath != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Saved safely to: ${p.basename(savedPath)}"),
-                        backgroundColor: AppColors.success,
-                      ),
+                  try {
+                    // Read the raw binary data of the encrypted PDF
+                    final bytes = await generatedFile.readAsBytes();
+
+                    // Ask OS for the destination path AND hand it the bytes simultaneously
+                    final String? outputFile = await FilePicker.platform.saveFile(
+                      dialogTitle: 'Save Protected PDF',
+                      fileName: defaultSaveName,
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf'],
+                      bytes: bytes, 
                     );
+
+                    if (outputFile != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Encrypted PDF saved safely to your device!"), 
+                          backgroundColor: AppColors.success
+                        )
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(content: Text("Error saving file: $e"), backgroundColor: AppColors.error)
+                       );
+                    }
                   }
                 },
               ),
