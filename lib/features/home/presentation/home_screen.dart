@@ -133,13 +133,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: GridView.builder(
                       physics: const NeverScrollableScrollPhysics(),
-                      // FIX 1: Pushed the top padding down from 8 to 24 to separate it from the header!
-                      padding: const EdgeInsets.only(top: 24), 
+                      padding: const EdgeInsets.only(top: 50), 
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
-                        // FIX 2: The perfect dimensional sweet spot between a box and a rectangle!
                         childAspectRatio: 0.85, 
                       ),
                       itemCount: chunk.length,
@@ -162,6 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   dotHeight: 8,
                   dotWidth: 8,
                   activeDotColor: AppColors.primary,
+                  // ignore: deprecated_member_use
                   dotColor: Colors.grey.withOpacity(0.3),
                   expansionFactor: 4,
                 ),
@@ -387,6 +386,7 @@ class _FeatureCard extends StatelessWidget {
                 width: 52, 
                 height: 52,
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: item.color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
