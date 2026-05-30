@@ -84,6 +84,7 @@ abstract class IPdfRepository {
   int estimateCompressedSize(int originalSize, CompressionLevel level);
   Future<File> protectPdf(File pdfFile, String password);
   Future<File> unlockPdf(File pdfFile, String password);
+  Future<File> stampSignature(File pdfFile, File signatureFile, int pageIndex, ui.Rect signatureBounds);
 }
 
 // TOP-LEVEL FUNCTION for image processing (used in image-to-pdf)
@@ -532,5 +533,41 @@ class PdfRepository implements IPdfRepository {
     );
 
     return await outputFile.writeAsBytes(unlockedBytes);
+  }
+
+    @override
+  Future<File> stampSignature(
+    File pdfFile, 
+    File signatureFile, 
+    int pageIndex, 
+    ui.Rect signatureBounds,
+  ) async {
+    // 1. Read the target PDF
+    final List<int> pdfBytes = await pdfFile.readAsBytes();
+    final PdfDocument document = PdfDocument(inputBytes: pdfBytes);
+
+    // 2. Target the specific page the user selected
+    final PdfPage page = document.pages[pageIndex];
+
+    // 3. Read the signature image
+    final List<int> sigBytes = await signatureFile.readAsBytes();
+    final PdfBitmap signatureBitmap = PdfBitmap(sigBytes);
+
+    // 4. Draw the signature at the exact translated coordinates
+    page.graphics.drawImage(
+      signatureBitmap,
+      signatureBounds,
+    );
+
+    // 5. Save and dispose
+    final List<int> outputBytes = await document.save();
+    document.dispose();
+
+    final tempDir = await _fileHelper.getTempDir();
+    final outputFile = File(
+      '${tempDir.path}/signed_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    return await outputFile.writeAsBytes(outputBytes);
   }
 }

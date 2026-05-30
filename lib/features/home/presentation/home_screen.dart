@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
 import 'package:mintpdf/features/home/domain/feature_model.dart';
+import 'package:mintpdf/features/pdf_processing/presentation/stamp_pdf_screen.dart';
 import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 import '../../pdf_processing/presentation/merge_pdf_screen.dart';
@@ -58,6 +59,14 @@ class HomeScreen extends ConsumerWidget {
       icon: Icons.lock_open,
       color: Colors.green,
       type: FeatureType.unlockPdf,
+    ),
+
+    FeatureModel(
+      title: 'Stamp Signature',
+      description: 'Put your signature in PDF',
+      icon: Icons.draw,
+      color: Colors.redAccent,
+      type: FeatureType.stampSignature,
     ),
   ];
 
@@ -292,6 +301,11 @@ class _FeatureCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const UnlockPdfScreen()),
+            );
+          } else if (item.type == FeatureType.stampSignature) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StampPdfScreen()),
             );
           } else {
             // Placeholder for other features
