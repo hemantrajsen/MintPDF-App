@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/theme_provider.dart';
 import 'package:mintpdf/core/utils/file_helper.dart';
-import 'package:mintpdf/features/pdf_processing/presentation/user_signature_screen.dart';
+import 'package:mintpdf/features/settings/presentation/user_signature_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 
