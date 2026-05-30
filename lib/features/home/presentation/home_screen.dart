@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mintpdf/features/pdf_processing/presentation/stamp_pdf_screen.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:mintpdf/core/theme/app_colors.dart';
 import 'package:mintpdf/features/home/domain/feature_model.dart';
-import 'package:mintpdf/features/pdf_processing/presentation/stamp_pdf_screen.dart';
 import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 import '../../pdf_processing/presentation/merge_pdf_screen.dart';
@@ -11,10 +12,17 @@ import '../../pdf_processing/presentation/protect_pdf_screen.dart';
 import '../../pdf_processing/presentation/unlock_pdf_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
-  // Define our features list here for the UI to consume
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+  late final PageController _pageController;
+  late final AnimationController _animController;
+
   final List<FeatureModel> _features = const [
     FeatureModel(
       title: 'Images to PDF',
@@ -27,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
       title: 'Compress PDF',
       description: 'Reduce file size',
       icon: Icons.compress,
-      color: Colors.orange,
+      color: AppColors.accent,
       type: FeatureType.compressPdf,
     ),
     FeatureModel(
@@ -41,26 +49,23 @@ class HomeScreen extends ConsumerWidget {
       title: 'Split PDF',
       description: 'Extract pages',
       icon: Icons.call_split,
-      color: Colors.indigo,
+      color: Colors.indigoAccent,
       type: FeatureType.splitPdf,
     ),
-
     FeatureModel(
       title: 'Protect PDF',
       description: 'Lock with AES-256',
       icon: Icons.security,
       color: Colors.blueGrey,
-      type: FeatureType.protectPdf,
+      type: FeatureType.protectPdf, 
     ),
-
     FeatureModel(
       title: 'Unlock PDF',
-      description: 'Unlock the Locked PDF',
+      description: 'Remove passwords permanently',
       icon: Icons.lock_open,
       color: Colors.green,
-      type: FeatureType.unlockPdf,
+      type: FeatureType.unlockPdf, 
     ),
-
     FeatureModel(
       title: 'Stamp Signature',
       description: 'Put your signature in PDF',
@@ -71,178 +76,189 @@ class HomeScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.95);
+    
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _animController.dispose();
+    super.dispose();
+  }
+
+  List<List<FeatureModel>> _getChunks() {
+    List<List<FeatureModel>> chunks = [];
+    for (var i = 0; i < _features.length; i += 4) {
+      int end = (i + 4 < _features.length) ? i + 4 : _features.length;
+      chunks.add(_features.sublist(i, end));
+    }
+    return chunks;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final featureChunks = _getChunks();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // 1. The Modern App Bar
-          SliverAppBar.large(
-            expandedHeight: 180.0,
-            pinned: true,
-            stretch: true,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            surfaceTintColor: Colors.transparent,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 1. STATIC HEADER
+            _buildStaticHeader(isDark),
 
-            // Custom Settings Button
-            actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  // ignore: deprecated_member_use
-                  color: Theme.of(context).cardColor.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white10
-                        // ignore: deprecated_member_use
-                        : Colors.black.withOpacity(0.05),
-                  ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                    );
-                  },
+            // 2. SWIPEABLE CANVAS
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  _animController.reset();
+                  _animController.forward();
+                },
+                itemCount: featureChunks.length,
+                itemBuilder: (context, pageIndex) {
+                  final chunk = featureChunks[pageIndex];
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      // FIX 1: Pushed the top padding down from 8 to 24 to separate it from the header!
+                      padding: const EdgeInsets.only(top: 24), 
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        // FIX 2: The perfect dimensional sweet spot between a box and a rectangle!
+                        childAspectRatio: 0.85, 
+                      ),
+                      itemCount: chunk.length,
+                      itemBuilder: (context, itemIndex) {
+                        return _buildStaggeredCard(chunk[itemIndex], itemIndex);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // 3. EXPANDING DOT INDICATOR
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: SmoothPageIndicator(
+                controller: _pageController,
+                count: featureChunks.length,
+                effect: ExpandingDotsEffect(
+                  dotHeight: 8,
+                  dotWidth: 8,
+                  activeDotColor: AppColors.primary,
+                  dotColor: Colors.grey.withOpacity(0.3),
+                  expansionFactor: 4,
                 ),
               ),
-            ],
+            ),
 
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
-              centerTitle: false,
-              title: Text(
-                "MintPDF",
-                style: TextStyle(
-                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  fontSize: 28,
+            // 4. STATIC FOOTER
+            _buildTrustBadge(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET BUILDERS ---
+
+  Widget _buildStaticHeader(bool isDark) {
+    return SizedBox(
+      height: 200, 
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [AppColors.primary.withOpacity(0.12), Colors.transparent],
                 ),
-              ),
-              background: Stack(
-                children: [
-                  // Decorative Gradient Blob (Top Right)
-                  Positioned(
-                    top: -60,
-                    right: -60,
-                    child: Container(
-                      width: 250,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            // ignore: deprecated_member_use
-                            AppColors.primary.withOpacity(0.12),
-                            // ignore: deprecated_member_use
-                            AppColors.primary.withOpacity(0.0),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Decorative Accent Blob (Mid Left)
-                  Positioned(
-                    top: 40,
-                    left: -40,
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        // ignore: deprecated_member_use
-                        color: AppColors.accent.withOpacity(0.04),
-                      ),
-                    ),
-                  ),
-
-                  // Optional: A very subtle icon in the background
-                  Positioned(
-                    bottom: 20,
-                    right: 20,
-                    child: Transform.rotate(
-                      angle: -0.2,
-                      child: Icon(
-                        Icons.description_outlined,
-                        size: 120,
-                        color: isDark
-                            // ignore: deprecated_member_use
-                            ? Colors.white.withOpacity(0.02)
-                            // ignore: deprecated_member_use
-                            : Colors.black.withOpacity(0.02),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-
-          // 2. The Feature Grid
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // 2 Columns
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.85, // Taller cards
+          Positioned(
+            top: 20,
+            left: -30,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accent.withOpacity(0.04),
               ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                return _FeatureCard(item: _features[index]);
-              }, childCount: _features.length),
             ),
           ),
-
-          // 3. The Privacy Trust Badge (Footer)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    Text(
+                      "MintPDF",
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                        // FIX 3: Increased size and set strict bold weight
+                        fontWeight: FontWeight.w800, 
+                        letterSpacing: -0.5,
+                        fontSize: 36, 
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "What would you like to do?",
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
                 Container(
-                  margin: const EdgeInsets.all(24),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  margin: const EdgeInsets.only(top: 16),
                   decoration: BoxDecoration(
-                    // ignore: deprecated_member_use
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Theme.of(context).cardColor.withOpacity(0.5),
+                    shape: BoxShape.circle,
                     border: Border.all(
-                      // ignore: deprecated_member_use
-                      color: AppColors.primary.withOpacity(0.2),
+                      color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.shield_outlined,
-                        size: 16,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "100% On-Device Processing",
-                        style: TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  child: IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -252,11 +268,59 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildStaggeredCard(FeatureModel item, int index) {
+    final double start = index * 0.15;
+    final double end = (start + 0.5).clamp(0.0, 1.0);
+
+    final animation = CurvedAnimation(
+      parent: _animController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: Transform.translate(
+            offset: Offset(0, 40 * (1.0 - animation.value)),
+            child: child,
+          ),
+        );
+      },
+      child: _FeatureCard(item: item),
+    );
+  }
+
+  Widget _buildTrustBadge() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.shield_outlined, size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            "100% On-Device Processing",
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// -----------------------------------------------------------
-// Sub-Widget: The Individual Feature Card
-// -----------------------------------------------------------
 class _FeatureCard extends StatelessWidget {
   final FeatureModel item;
 
@@ -265,87 +329,53 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 1,
+      elevation: 2,
       clipBehavior: Clip.antiAlias,
-      // Use the theme's card color, but slightly elevated visually
       color: Theme.of(context).cardTheme.color,
-      shape: Theme.of(context).cardTheme.shape,
+      shape: Theme.of(context).cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         onTap: () {
           if (item.type == FeatureType.imageToPdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ImageToPdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ImageToPdfScreen()));
           } else if (item.type == FeatureType.compressPdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CompressPdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const CompressPdfScreen()));
           } else if (item.type == FeatureType.mergePdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MergePdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const MergePdfScreen()));
           } else if (item.type == FeatureType.splitPdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SplitPdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SplitPdfScreen()));
           } else if (item.type == FeatureType.protectPdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProtectPdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProtectPdfScreen()));
           } else if (item.type == FeatureType.unlockPdf) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const UnlockPdfScreen()),
-            );
-          } else if (item.type == FeatureType.stampSignature) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StampPdfScreen()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const UnlockPdfScreen()));
+          } else if (item.type == FeatureType.stampSignature){
+            Navigator.push(context,MaterialPageRoute(builder: (_) => const StampPdfScreen()) );
           } else {
-            // Placeholder for other features
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Coming Soon: ${item.title}')),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Coming Soon: ${item.title}')));
           }
         },
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon Container
               Container(
-                width: 48,
-                height: 48,
+                width: 52, 
+                height: 52,
                 decoration: BoxDecoration(
-                  // ignore: deprecated_member_use
-                  color: item.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: item.color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(item.icon, color: item.color, size: 24),
+                child: Icon(item.icon, color: item.color, size: 28),
               ),
               const Spacer(),
-              // Text Content
               Text(
                 item.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 item.description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).textTheme.bodySmall?.color,
-                ),
+                style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodySmall?.color),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
