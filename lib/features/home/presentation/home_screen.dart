@@ -180,20 +180,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
   Widget _buildStaticHeader(bool isDark) {
     return SizedBox(
-      height: 200, 
+      height: 140, 
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // 1. The Cool Document Watermark!
           Positioned(
-            top: -50,
-            right: -50,
+            top: 10,
+            right: 15,
+            child: Transform.rotate(
+              angle: 0.15, // A slight tilt to make it look dynamic
+              child: Icon(
+                Icons.text_snippet_rounded, // The "docs image"
+                size: 130, // Scaled up massively
+                color: isDark 
+                    // ignore: deprecated_member_use
+                    ? Colors.white.withOpacity(0.04) 
+                    // ignore: deprecated_member_use
+                    : Colors.black.withOpacity(0.03),
+              ),
+            ),
+          ),
+
+          // 2. Original Background Blobs
+          Positioned(
+            top: -40,
+            right: -20,
             child: Container(
-              width: 250,
-              height: 250,
+              width: 150,
+              height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [AppColors.primary.withOpacity(0.12), Colors.transparent],
+                  // ignore: deprecated_member_use
+                  colors: [AppColors.primary.withOpacity(0.30), Colors.transparent],
                 ),
               ),
             ),
@@ -202,17 +222,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
             top: 20,
             left: -30,
             child: Container(
-              width: 180,
-              height: 180,
+              width: 150,
+              height: 130,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.accent.withOpacity(0.04),
+                // ignore: deprecated_member_use
+                color: AppColors.accent.withOpacity(0.08),
               ),
             ),
           ),
           
+          // 3. Original Foreground Content
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,18 +247,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       "MintPDF",
                       style: TextStyle(
                         color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                        // FIX 3: Increased size and set strict bold weight
-                        fontWeight: FontWeight.w800, 
+                        fontWeight: FontWeight.w900, 
                         letterSpacing: -0.5,
-                        fontSize: 36, 
+                        fontSize: 32, 
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       "What would you like to do?",
                       style: TextStyle(
                         color: Colors.grey.shade500,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -245,9 +266,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                 Container(
                   margin: const EdgeInsets.only(top: 16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor.withOpacity(0.5),
+                    // ignore: deprecated_member_use
+                    color: Theme.of(context).cardColor.withOpacity(0.8), // Slightly more opaque so the settings gear stands out against the watermark
                     shape: BoxShape.circle,
                     border: Border.all(
+                      // ignore: deprecated_member_use
                       color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
                     ),
                   ),
@@ -298,8 +321,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
       margin: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
+        // ignore: deprecated_member_use
         color: AppColors.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
+        // ignore: deprecated_member_use
         border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Row(
