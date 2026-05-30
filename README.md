@@ -12,6 +12,9 @@ MintPDF is a powerful Flutter application designed to handle all your PDF manipu
 *   **🗜️ Compress PDF**: Optimize your PDF files to reduce size without compromising readability, making them easier to share.
 *   **🔗 Merge PDFs**: Combine multiple PDF documents into one organized file.
 *   **✂️ Split PDF**: Extract specific pages or split a large document into separate files.
+*   **🛡️ Protect PDF**: Protect your PDF with AES-256 encryption lock.
+*   **🔓 Unlock PDF**: Remove the passwords permanently of any PDF.
+*   **✍🏻 Stamp Signature**: Put your signature in PDF.
 *   **🛡️ 100% On-Device Processing**: No cloud uploads. No servers. Your data stays with you.
 *   **🎨 Modern UI**: A clean, "Fresh Workspace" aesthetic with dark mode support.
 
