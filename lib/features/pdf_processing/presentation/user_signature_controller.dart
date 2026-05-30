@@ -34,22 +34,21 @@ class UserSignatureNotifier extends StateNotifier<UserSignatureState> {
     _loadExistingSignature();
   }
 
-  // The engine that manages the drawing strokes
   final SignatureController signatureController = SignatureController(
     penStrokeWidth: 3,
     penColor: Colors.black,
-    exportBackgroundColor: Colors.transparent, // CRITICAL: Keeps background clear
+    exportBackgroundColor: Colors.transparent, 
   );
 
   Future<void> _loadExistingSignature() async {
     try {
-      final docDir = await FileHelper.instance.getTempDir(); // Or getApplicationDocumentsDirectory
+      final docDir = await FileHelper.instance.getTempDir(); 
       final file = File('${docDir.path}/user_signature.png');
       if (await file.exists()) {
         state = state.copyWith(savedSignatureFile: file);
       }
     } catch (e) {
-      // Just ignore if it doesn't exist yet
+      // Ignore if file doesn't exist yet
     }
   }
 
@@ -62,14 +61,17 @@ class UserSignatureNotifier extends StateNotifier<UserSignatureState> {
     state = state.copyWith(isSaving: true, error: null);
 
     try {
-      // Export strokes to a transparent PNG
       final Uint8List? pngBytes = await signatureController.toPngBytes();
-      
       if (pngBytes == null) throw Exception("Failed to encode signature.");
 
-      // Save to local device storage permanently
-      final docDir = await FileHelper.instance.getTempDir(); // Use app documents dir for permanence
+      final docDir = await FileHelper.instance.getTempDir(); 
       final file = File('${docDir.path}/user_signature.png');
+
+      // 1. FORCE EVICT FROM FLUTTER'S IMAGE CACHE
+      // This forces Flutter to clear any old image matching this file path from memory
+      await FileImage(file).evict();
+
+      // 2. Write the fresh new signature bytes
       await file.writeAsBytes(pngBytes, flush: true);
 
       state = state.copyWith(isSaving: false, savedSignatureFile: file);
@@ -88,9 +90,17 @@ class UserSignatureNotifier extends StateNotifier<UserSignatureState> {
   Future<void> deleteSavedSignature() async {
     if (state.savedSignatureFile != null) {
       if (await state.savedSignatureFile!.exists()) {
+        // Evict from cache here too before erasing the physical file
+        await FileImage(state.savedSignatureFile!).evict();
         await state.savedSignatureFile!.delete();
       }
-      state = state.copyWith(savedSignatureFile: null);
+      
+      state = UserSignatureState(
+        isSaving: state.isSaving,
+        savedSignatureFile: null,
+        error: state.error,
+      );
+      
       signatureController.clear();
     }
   }

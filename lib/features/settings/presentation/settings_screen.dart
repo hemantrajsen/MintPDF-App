@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mintpdf/core/theme/theme_provider.dart';
 import 'package:mintpdf/core/utils/file_helper.dart';
+import 'package:mintpdf/features/pdf_processing/presentation/user_signature_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -49,6 +51,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: const Text('Clear Temporary Files'),
             subtitle: const Text('Free up space used by processed files'),
             onTap: () => _clearCache(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.draw, color: Colors.teal),
+            title: const Text("Manage My Signature"),
+            subtitle: const Text("Draw and save your default signature"),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserSignatureScreen()),
+              );
+            },
           ),
           const Divider(),
           _buildSectionHeader(context, 'About'),
