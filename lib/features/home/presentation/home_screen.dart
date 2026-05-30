@@ -6,6 +6,8 @@ import '../../pdf_processing/presentation/image_to_pdf_screen.dart';
 import '../../pdf_processing/presentation/compress_pdf_screen.dart';
 import '../../pdf_processing/presentation/merge_pdf_screen.dart';
 import '../../pdf_processing/presentation/split_pdf_screen.dart';
+import '../../pdf_processing/presentation/protect_pdf_screen.dart';
+import '../../pdf_processing/presentation/unlock_pdf_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -17,14 +19,14 @@ class HomeScreen extends ConsumerWidget {
       title: 'Images to PDF',
       description: 'Convert photos to a single PDF',
       icon: Icons.image_outlined,
-      color: AppColors.primary,
+      color: Color.fromARGB(255, 0, 150, 97),
       type: FeatureType.imageToPdf,
     ),
     FeatureModel(
       title: 'Compress PDF',
       description: 'Reduce file size',
       icon: Icons.compress,
-      color: AppColors.accent,
+      color: Colors.orange,
       type: FeatureType.compressPdf,
     ),
     FeatureModel(
@@ -38,8 +40,24 @@ class HomeScreen extends ConsumerWidget {
       title: 'Split PDF',
       description: 'Extract pages',
       icon: Icons.call_split,
-      color: Colors.teal,
+      color: Colors.indigo,
       type: FeatureType.splitPdf,
+    ),
+
+    FeatureModel(
+      title: 'Protect PDF',
+      description: 'Lock with AES-256',
+      icon: Icons.security,
+      color: Colors.blueGrey,
+      type: FeatureType.protectPdf,
+    ),
+
+    FeatureModel(
+      title: 'Unlock PDF',
+      description: 'Unlock the Locked PDF',
+      icon: Icons.lock_open,
+      color: Colors.green,
+      type: FeatureType.unlockPdf,
     ),
   ];
 
@@ -251,7 +269,6 @@ class _FeatureCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const ImageToPdfScreen()),
             );
           } else if (item.type == FeatureType.compressPdf) {
-            // ADD THIS
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CompressPdfScreen()),
@@ -265,6 +282,16 @@ class _FeatureCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SplitPdfScreen()),
+            );
+          } else if (item.type == FeatureType.protectPdf) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProtectPdfScreen()),
+            );
+          } else if (item.type == FeatureType.unlockPdf) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const UnlockPdfScreen()),
             );
           } else {
             // Placeholder for other features

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum FeatureType { imageToPdf, compressPdf, mergePdf, splitPdf, history }
+enum FeatureType { imageToPdf, compressPdf, mergePdf, splitPdf, history, protectPdf, unlockPdf}
 
 class FeatureModel {
   final String title;

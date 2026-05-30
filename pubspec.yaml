@@ -54,6 +54,9 @@ dependencies:
   reorderable_grid_view: ^2.2.8
   package_info_plus: ^9.0.0
 
+  #Signature
+  signature: ^5.4.0
+
 
 dev_dependencies:
   flutter_test:

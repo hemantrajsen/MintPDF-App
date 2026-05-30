@@ -82,6 +82,8 @@ abstract class IPdfRepository {
   Future<File> mergePdfs(List<File> pdfFiles);
   Future<File> splitPdf(File pdfFile, String pageRange);
   int estimateCompressedSize(int originalSize, CompressionLevel level);
+  Future<File> protectPdf(File pdfFile, String password);
+  Future<File> unlockPdf(File pdfFile, String password);
 }
 
 // TOP-LEVEL FUNCTION for image processing (used in image-to-pdf)
@@ -483,5 +485,52 @@ class PdfRepository implements IPdfRepository {
     }
     final sortedList = pages.toList()..sort();
     return sortedList;
+  }
+  @override
+  Future<File> protectPdf(File pdfFile, String password) async {
+    final List<int> bytes = await pdfFile.readAsBytes();
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+
+    // Access the security settings of the document
+    final PdfSecurity security = document.security;
+    
+    // Set both User and Owner passwords to ensure complete lock
+    security.userPassword = password;
+    security.ownerPassword = password;
+    
+    // Apply AES 256-bit encryption (highest standard)
+    security.algorithm = PdfEncryptionAlgorithm.aesx256Bit;
+
+    final List<int> protectedBytes = await document.save();
+    document.dispose();
+
+    final tempDir = await _fileHelper.getTempDir();
+    final outputFile = File(
+      '${tempDir.path}/protected_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    return await outputFile.writeAsBytes(protectedBytes);
+  }
+
+  @override
+  Future<File> unlockPdf(File pdfFile, String password) async {
+    final List<int> bytes = await pdfFile.readAsBytes();
+    
+    // Open the document by passing the password to the constructor
+    final PdfDocument document = PdfDocument(inputBytes: bytes, password: password);
+
+    // Strip the security by clearing the passwords
+    document.security.userPassword = '';
+    document.security.ownerPassword = '';
+
+    final List<int> unlockedBytes = await document.save();
+    document.dispose();
+
+    final tempDir = await _fileHelper.getTempDir();
+    final outputFile = File(
+      '${tempDir.path}/unlocked_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
+
+    return await outputFile.writeAsBytes(unlockedBytes);
   }
 }
