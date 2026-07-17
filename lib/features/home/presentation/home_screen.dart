@@ -397,7 +397,7 @@ class _FeatureCard extends StatelessWidget {
                 item.title,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               Text(
                 item.description,
                 style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodySmall?.color),
